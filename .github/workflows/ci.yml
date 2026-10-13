@@ -32,6 +32,7 @@ jobs:
           (cd proto && buf generate)
           go tool sqlc generate -f services/auth/sqlc.yaml
           go tool sqlc generate -f services/shipment/sqlc.yaml
+          go tool sqlc generate -f services/tracking/sqlc.yaml
           git diff --exit-code -- gen services
 
   go:

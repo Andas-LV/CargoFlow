@@ -9,15 +9,15 @@
 | gateway | счётчики rate limit (Redis `rl:*`) | auth, shipment, tracking | — | — |
 | auth | `users` (Postgres `auth`), refresh-сессии (Redis `refresh:*`) | — | — | — |
 | shipment | `shipments`, `outbox` (Postgres `shipment`), кеш (Redis `shipment:*`) | — | `shipment.created`, `shipment.status_changed` | — |
-| tracking | `positions` (MongoDB `tracking`) | shipment (`GetShipment`) | `tracking.position_updated` | `shipment.created` |
+| tracking | `positions` (Postgres `tracking`) | shipment (`GetShipment`) | `tracking.position_updated` | `shipment.created` |
 | notification | — | — | — | `shipment.>`, `tracking.>` |
 
 Правила:
 
 - Сервис не ходит в чужую БД. Чужие данные — только через gRPC или события. Например, tracking проверяет, что заявка принадлежит пользователю, вызовом `ShipmentService.GetShipment`, а не запросом к Postgres shipment.
 - Redis общий, но у каждого сервиса свой префикс ключей.
-- Структура сервиса: `cmd/main.go` (сборка зависимостей) → `internal/grpcserver` (proto ↔ домен, коды ошибок) → `internal/service` (логика) → `internal/repository` (БД, sqlc/Mongo/Redis).
-- Общий инфраструктурный код — в `pkg/`: logger, otelx, grpcx, natsx, postgres, mongox, redisx, health, shutdown.
+- Структура сервиса: `cmd/main.go` (сборка зависимостей) → `internal/grpcserver` (proto ↔ домен, коды ошибок) → `internal/service` (логика) → `internal/repository` (sqlc для Postgres, Redis).
+- Общий инфраструктурный код — в `pkg/`: logger, otelx, grpcx, natsx, postgres, redisx, health, shutdown.
 
 ## Синхронное взаимодействие: gRPC
 
@@ -57,7 +57,7 @@ Stream `CARGO`, subjects `shipment.>` и `tracking.>`, file storage, хране�
 - Payload — protobuf (`Content-Type: application/protobuf`). Статусы и типы груза в событиях — строки, чтобы потребители не зависели от enum'ов API.
 - Заголовок `Nats-Msg-Id` = ID события: повторная публикация в пределах окна дедупликации отбрасывается JetStream'ом.
 - Consumers durable, `AckExplicit`, `MaxDeliver=5`. При ошибке обработчика — `NakWithDelay(2s)`; битые сообщения подтверждаются и логируются, чтобы не крутиться бесконечно.
-- Доставка at-least-once, поэтому обработчики идемпотентны. tracking использует ID события как `_id` документа в MongoDB, и повтор просто ничего не вставит.
+- Доставка at-least-once, поэтому обработчики идемпотентны. tracking использует ID события как первичный ключ строки (`INSERT ... ON CONFLICT (id) DO NOTHING`), и повтор просто ничего не вставит.
 
 ## Transactional outbox (shipment)
 
@@ -70,7 +70,7 @@ Stream `CARGO`, subjects `shipment.>` и `tracking.>`, file storage, хране�
 3. `SKIP LOCKED` позволяет нескольким репликам shipment разбирать outbox параллельно без двойной отправки.
 4. Если процесс упадёт после публикации, но до коммита, строка уйдёт ещё раз. Дубль отсечёт `Nats-Msg-Id`, а на крайний случай потребители идемпотентны.
 
-tracking публикует `tracking.position_updated` напрямую после вставки в MongoDB, чтобы пример остался коротким: при недоступном NATS событие потеряется. Для продакшна там нужен такой же outbox (коллекция в Mongo) или MongoDB change streams.
+tracking публикует `tracking.position_updated` напрямую после вставки в Postgres, чтобы пример остался коротким: при недоступном NATS событие потеряется. Для продакшна там нужен такой же outbox, как в shipment.
 
 ## Трейсинг
 
@@ -106,7 +106,7 @@ tracking публикует `tracking.position_updated` напрямую пос�
 ## Здоровье и жизненный цикл
 
 - `GET /healthz` — процесс жив, всегда 200.
-- `GET /readyz` — проверяет зависимости (Postgres, Redis, MongoDB, NATS; gateway — ещё и `grpc.health.v1` каждого бэкенда), при сбое отдаёт 503 и JSON с ошибкой по каждой зависимости.
+- `GET /readyz` — проверяет зависимости (Postgres, Redis, NATS; gateway — ещё и `grpc.health.v1` каждого бэкенда), при сбое отдаёт 503 и JSON с ошибкой по каждой зависимости.
 - gRPC-сервисы дополнительно отвечают по `grpc.health.v1.Health/Check`.
 - Graceful shutdown (`pkg/shutdown`): SIGINT/SIGTERM отменяют контекст, `errgroup` останавливает компоненты, на всё даётся 10 секунд. gRPC — `GracefulStop` (по таймауту `Stop`), HTTP — `Shutdown`, consumers — `Drain`, outbox relay доходит до конца текущей итерации, затем закрываются NATS (drain), пулы БД и сбрасываются спаны.
 
@@ -116,7 +116,7 @@ tracking публикует `tracking.position_updated` напрямую пос�
 
 ## Миграции
 
-SQL-миграции goose лежат в `services/<svc>/migrations` и встраиваются в бинарник через `embed`. Применяются:
+SQL-миграции goose лежат в `services/<svc>/migrations` (auth, shipment, tracking — у каждого своя БД) и встраиваются в бинарник через `embed`. Применяются:
 
 - локально: `make migrate-up` (goose CLI через `go tool`);
 - в Docker и на Render: при старте, если `MIGRATE_ON_START=true`. Используется Postgres advisory lock, поэтому одновременный старт нескольких реплик безопасен.

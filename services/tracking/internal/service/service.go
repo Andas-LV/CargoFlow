@@ -29,7 +29,7 @@ type Position = repository.Position
 
 type PositionStore interface {
 	Insert(ctx context.Context, p Position) (bool, error)
-	ListByShipment(ctx context.Context, shipmentID string) ([]Position, error)
+	ListByShipment(ctx context.Context, shipmentID uuid.UUID) ([]Position, error)
 }
 
 type ShipmentChecker interface {
@@ -54,7 +54,7 @@ func New(positions PositionStore, shipments ShipmentChecker, events Publisher, l
 
 type AddPositionInput struct {
 	UserID     string
-	ShipmentID string
+	ShipmentID uuid.UUID
 	Station    string
 	Lat, Lon   float64
 }
@@ -63,18 +63,18 @@ type AddPositionInput struct {
 //
 // The event is published directly after the insert (no outbox) to keep the example small:
 // if NATS is down the position is saved but the event is lost. A production version would
-// use an outbox collection or MongoDB change streams, like the shipment service does.
+// use a transactional outbox, like the shipment service does.
 func (s *Service) AddPosition(ctx context.Context, in AddPositionInput) (Position, error) {
 	in.Station = strings.TrimSpace(in.Station)
 	if in.Station == "" {
 		return Position{}, fmt.Errorf("%w: station is required", ErrInvalidInput)
 	}
-	if err := s.shipments.CheckOwner(ctx, in.UserID, in.ShipmentID); err != nil {
+	if err := s.shipments.CheckOwner(ctx, in.UserID, in.ShipmentID.String()); err != nil {
 		return Position{}, err
 	}
 
 	p := Position{
-		ID:         uuid.NewString(),
+		ID:         uuid.New(),
 		ShipmentID: in.ShipmentID,
 		Station:    in.Station,
 		Lat:        in.Lat,
@@ -87,8 +87,8 @@ func (s *Service) AddPosition(ctx context.Context, in AddPositionInput) (Positio
 	}
 
 	ev := &eventsv1.PositionUpdated{
-		EventId:    p.ID,
-		ShipmentId: p.ShipmentID,
+		EventId:    p.ID.String(),
+		ShipmentId: p.ShipmentID.String(),
 		Station:    p.Station,
 		Lat:        p.Lat,
 		Lon:        p.Lon,
@@ -100,19 +100,27 @@ func (s *Service) AddPosition(ctx context.Context, in AddPositionInput) (Positio
 	return p, nil
 }
 
-func (s *Service) GetRoute(ctx context.Context, userID, shipmentID string) ([]Position, error) {
-	if err := s.shipments.CheckOwner(ctx, userID, shipmentID); err != nil {
+func (s *Service) GetRoute(ctx context.Context, userID string, shipmentID uuid.UUID) ([]Position, error) {
+	if err := s.shipments.CheckOwner(ctx, userID, shipmentID.String()); err != nil {
 		return nil, err
 	}
 	return s.positions.ListByShipment(ctx, shipmentID)
 }
 
 // HandleShipmentCreated opens the route with the origin station. The event ID is used as
-// the document ID, so redelivered events are ignored.
+// the row ID, so redelivered events are ignored.
 func (s *Service) HandleShipmentCreated(ctx context.Context, ev *eventsv1.ShipmentCreated) error {
+	eventID, err1 := uuid.Parse(ev.GetEventId())
+	shipmentID, err2 := uuid.Parse(ev.GetShipmentId())
+	if err := errors.Join(err1, err2); err != nil {
+		// Retrying cannot fix a malformed event: log and acknowledge it.
+		s.log.ErrorContext(ctx, "drop shipment.created with bad IDs", "err", err)
+		return nil
+	}
+
 	inserted, err := s.positions.Insert(ctx, Position{
-		ID:         ev.GetEventId(),
-		ShipmentID: ev.GetShipmentId(),
+		ID:         eventID,
+		ShipmentID: shipmentID,
 		Station:    ev.GetOrigin(),
 		Source:     natsx.SubjectShipmentCreated,
 		RecordedAt: ev.GetOccurredAt().AsTime(),

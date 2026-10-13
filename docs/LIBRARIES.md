@@ -10,9 +10,8 @@
 | `google.golang.org/protobuf` | v1.36 | protobuf-сообщения, `protojson`, `timestamppb` | везде |
 | `github.com/grpc-ecosystem/grpc-gateway/v2` | v2.31 | REST/JSON → gRPC по аннотациям в proto | `services/gateway/internal/server` |
 | `github.com/grpc-ecosystem/go-grpc-middleware/v2` | v2.3 | интерсепторы recovery и logging | `pkg/grpcx/server.go` |
-| `github.com/jackc/pgx/v5` | v5.11 | драйвер Postgres, пул `pgxpool`, транзакции | `pkg/postgres`, `repository` auth/shipment |
+| `github.com/jackc/pgx/v5` | v5.11 | драйвер Postgres, пул `pgxpool`, транзакции | `pkg/postgres`, `repository` auth/shipment/tracking |
 | `github.com/pressly/goose/v3` | v3.29 | миграции: CLI и встроенные в бинарник | `pkg/postgres/postgres.go` |
-| `go.mongodb.org/mongo-driver/v2` | v2.9 | MongoDB | `pkg/mongox`, `services/tracking/internal/repository` |
 | `github.com/redis/go-redis/v9` | v9.23 | Redis: сессии, кеш, rate limit | `pkg/redisx` и репозитории |
 | `github.com/nats-io/nats.go` (+ `jetstream`) | v1.54 | NATS и персистентные стримы | `pkg/natsx` |
 | `github.com/golang-jwt/jwt/v5` | v5.3 | выпуск и проверка JWT | `services/auth/internal/service/tokens.go` |
@@ -32,7 +31,7 @@
 | Пакет | Для чего |
 |---|---|
 | `github.com/stretchr/testify` | `assert` / `require` |
-| `github.com/testcontainers/testcontainers-go` + модули `postgres`, `mongodb` | интеграционные тесты с настоящими БД в Docker (build tag `integration`) |
+| `github.com/testcontainers/testcontainers-go` + модуль `postgres` | интеграционные тесты с настоящими БД в Docker (build tag `integration`) |
 
 ## Инструменты (`go tool <name>`)
 
@@ -199,25 +198,21 @@ if pgErr := (*pgconn.PgError)(nil); errors.As(err, &pgErr) && pgErr.Code == "235
 
 Миграции: `-- +goose Up` / `-- +goose Down` в одном файле. CLI — `go tool goose -dir services/auth/migrations postgres "$AUTH_DATABASE_URL" up`; встроенный вариант — `postgres.Migrate(ctx, pool, migrations.FS, log)` (goose Provider + `stdlib.OpenDBFromPool` + session locker).
 
-### MongoDB
+### Идемпотентная вставка (tracking)
 
-[services/tracking/internal/repository/positions.go](../services/tracking/internal/repository/positions.go)
+[services/tracking/queries/positions.sql](../services/tracking/queries/positions.sql), [positions.go](../services/tracking/internal/repository/positions.go)
+
+```sql
+-- name: InsertPosition :execrows
+INSERT INTO positions (id, shipment_id, station, lat, lon, source, recorded_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+ON CONFLICT (id) DO NOTHING;
+```
 
 ```go
-client, err := mongox.Connect(ctx, cfg.MongoURI) // mongo.Connect(options.Client().ApplyURI(uri)) + Ping
-coll := client.Database(cfg.MongoDB).Collection("positions")
-
-_, err = coll.Indexes().CreateOne(ctx, mongo.IndexModel{
-    Keys: bson.D{{Key: "shipment_id", Value: 1}, {Key: "recorded_at", Value: 1}},
-})
-
-// идемпотентная вставка: _id = ID события
-_, err = coll.InsertOne(ctx, Position{ID: ev.GetEventId(), ShipmentID: ..., Station: "Astana-1"})
-if mongo.IsDuplicateKeyError(err) { /* уже обработано */ }
-
-cur, err := coll.Find(ctx, bson.D{{Key: "shipment_id", Value: id}},
-    options.Find().SetSort(bson.D{{Key: "recorded_at", Value: 1}}))
-err = cur.All(ctx, &positions)
+// :execrows → sqlc возвращает число затронутых строк
+n, err := q.InsertPosition(ctx, db.InsertPositionParams(p)) // p.ID = ID события
+inserted := n == 1 // 0 — событие уже обработано, повтор ничего не меняет
 ```
 
 ### Redis

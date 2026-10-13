@@ -33,32 +33,36 @@ proto: ## Lint proto files and generate Go code + OpenAPI spec
 	cd proto && buf lint && buf generate
 
 .PHONY: sqlc
-sqlc: ## Generate type-safe DB code for auth and shipment
+sqlc: ## Generate type-safe DB code for auth, shipment and tracking
 	go tool sqlc generate -f services/auth/sqlc.yaml
 	go tool sqlc generate -f services/shipment/sqlc.yaml
+	go tool sqlc generate -f services/tracking/sqlc.yaml
 
 .PHONY: generate
 generate: proto sqlc ## Run all code generators
 
 # ---------- database migrations ----------
 .PHONY: migrate-up
-migrate-up: ## Apply migrations for auth and shipment
+migrate-up: ## Apply migrations for auth, shipment and tracking
 	go tool goose -dir services/auth/migrations postgres "$(AUTH_DATABASE_URL)" up
 	go tool goose -dir services/shipment/migrations postgres "$(SHIPMENT_DATABASE_URL)" up
+	go tool goose -dir services/tracking/migrations postgres "$(TRACKING_DATABASE_URL)" up
 
 .PHONY: migrate-down
-migrate-down: ## Roll back the last migration of auth and shipment
+migrate-down: ## Roll back the last migration of auth, shipment and tracking
 	go tool goose -dir services/auth/migrations postgres "$(AUTH_DATABASE_URL)" down
 	go tool goose -dir services/shipment/migrations postgres "$(SHIPMENT_DATABASE_URL)" down
+	go tool goose -dir services/tracking/migrations postgres "$(TRACKING_DATABASE_URL)" down
 
 .PHONY: migrate-status
 migrate-status: ## Show migration status
 	go tool goose -dir services/auth/migrations postgres "$(AUTH_DATABASE_URL)" status
 	go tool goose -dir services/shipment/migrations postgres "$(SHIPMENT_DATABASE_URL)" status
+	go tool goose -dir services/tracking/migrations postgres "$(TRACKING_DATABASE_URL)" status
 
 # ---------- local infrastructure ----------
 .PHONY: infra-up
-infra-up: ## Start Postgres, Mongo, Redis, NATS, Jaeger and wait until healthy
+infra-up: ## Start Postgres, Redis, NATS, Jaeger and wait until healthy
 	$(COMPOSE) up -d --wait
 
 .PHONY: infra-down

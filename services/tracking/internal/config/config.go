@@ -19,8 +19,8 @@ type Config struct {
 	// ShipmentGRPCAddr is used to check that a shipment exists and belongs to the caller.
 	ShipmentGRPCAddr string `env:"SHIPMENT_GRPC_ADDR,required"`
 
-	MongoURI string `env:"MONGO_URI,required"`
-	MongoDB  string `env:"MONGO_DB" envDefault:"tracking"`
+	DatabaseURL    string `env:"TRACKING_DATABASE_URL,required"`
+	MigrateOnStart bool   `env:"MIGRATE_ON_START"`
 
 	NATS natsx.Config
 	OTel otelx.Config

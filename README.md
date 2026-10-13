@@ -2,7 +2,7 @@
 
 Бэкенд системы трекинга грузоперевозок: заявки на перевозку вагонов и контейнеров, смена статусов, история перемещений, уведомления.
 
-Пет-проект, на котором показаны микросервисы на Go: **gRPC** между сервисами, **REST** для фронта через grpc-gateway, event-driven на **NATS JetStream** с transactional outbox, **Postgres** + **MongoDB** + **Redis**, сквозной трейсинг через **OpenTelemetry**.
+Пет-проект, на котором показаны микросервисы на Go: **gRPC** между сервисами, **REST** для фронта через grpc-gateway, event-driven на **NATS JetStream** с transactional outbox, **Postgres** + **Redis**, сквозной трейсинг через **OpenTelemetry**.
 
 Фронтенд (React + TypeScript, Vercel) живёт отдельно и получает от бэкенда REST API и OpenAPI-спецификацию.
 
@@ -30,7 +30,7 @@ flowchart LR
     SHIP --- PGS[("Postgres<br/>shipment")]
     SHIP --- RDS
     GW --- RDS
-    TRACK --- MDB[("MongoDB<br/>tracking")]
+    TRACK --- PGT[("Postgres<br/>tracking")]
 
     SHIP -- "outbox → shipment.*" --> NATS{{"NATS JetStream<br/>stream CARGO"}}
     TRACK -- "tracking.position_updated" --> NATS
@@ -43,7 +43,7 @@ flowchart LR
 | gateway | HTTP 8080 | Redis (rate limit) | REST→gRPC, проверка JWT, CORS, rate limit, `/openapi.json` |
 | auth | gRPC 50051, HTTP 8081 | Postgres `auth`, Redis | регистрация, логин, refresh, валидация токена |
 | shipment | gRPC 50052, HTTP 8082 | Postgres `shipment`, Redis | заявки и статусы, outbox → NATS |
-| tracking | gRPC 50053, HTTP 8083 | MongoDB | точки маршрута, история перемещений |
+| tracking | gRPC 50053, HTTP 8083 | Postgres `tracking` | точки маршрута, история перемещений |
 | notification | HTTP 8085 | — | слушает NATS, отправляет уведомления (заглушки) |
 
 HTTP-порты 8081–8085 отдают только `/healthz` и `/readyz`.
@@ -57,8 +57,8 @@ HTTP-порты 8081–8085 отдают только `/healthz` и `/readyz`.
 ```bash
 cp .env.example .env   # подставь значения из комментариев «локально:» (если .env ещё нет)
 make tools             # проверка buf/docker, сборка go-tools из go.mod
-make infra-up          # Postgres, MongoDB, Redis, NATS, Jaeger
-make migrate-up        # миграции auth и shipment
+make infra-up          # Postgres, Redis, NATS, Jaeger
+make migrate-up        # миграции auth, shipment и tracking
 make apps-up           # все 5 сервисов в Docker
 ```
 
@@ -155,11 +155,11 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 |---|---|
 | `make proto` | `buf lint` + генерация Go-кода, gRPC, gateway и OpenAPI в `gen/` |
 | `make sqlc` | генерация типобезопасного кода из `services/*/queries/*.sql` |
-| `make migrate-up` / `migrate-down` / `migrate-status` | миграции goose для auth и shipment |
+| `make migrate-up` / `migrate-down` / `migrate-status` | миграции goose для auth, shipment и tracking |
 | `make infra-up` / `infra-down` / `infra-reset` | инфраструктура в Docker (`reset` удаляет данные) |
 | `make apps-up` | собрать образы и поднять все сервисы в Docker |
 | `make run-<service>` | запустить сервис из исходников |
-| `make test` / `make test-integration` | unit-тесты / интеграционные на testcontainers |
+| `make test` / `make test-integration` | unit-тесты / интеграционные на testcontainers (Postgres) |
 | `make lint` | buf lint, go vet, golangci-lint |
 | `make build` / `make docker-build` | бинарники в `bin/` / Docker-образы |
 
@@ -172,8 +172,7 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 | Компонент | Где |
 |---|---|
 | Go-сервисы | Render, Docker, Blueprint [deploy/render.yaml](deploy/render.yaml) |
-| Postgres | Neon (отдельная БД на сервис) |
-| MongoDB | Atlas (free) |
+| Postgres | Neon (отдельная БД на сервис: `auth`, `shipment`, `tracking`) |
 | Redis | Upstash / Render Key Value |
 | NATS | Synadia Cloud (free) |
 | Трейсы | OTLP-коллектор (см. [ARCHITECTURE.md](docs/ARCHITECTURE.md#трейсинг)) |

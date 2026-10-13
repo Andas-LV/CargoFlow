@@ -19,7 +19,7 @@
 # consumers keep the messages, they are processed after wake-up).
 #
 # External managed services (fill in the Dashboard; values are prompted on first sync):
-#   Postgres → Neon (one database per service), MongoDB → Atlas, Redis → Upstash or Render
+#   Postgres → Neon (one database per service: auth, shipment, tracking), Redis → Upstash or Render
 #   Key Value, NATS → Synadia Cloud (upload the .creds file as a Secret File named
 #   nats.creds, it is mounted at /etc/secrets/nats.creds), traces → OTLP/gRPC collector.
 
@@ -131,10 +131,8 @@ services:
       - fromGroup: cargoflow-shared
       - key: TRACKING_HTTP_ADDR
         value: ":8083"
-      - key: MONGO_URI
-        sync: false # Atlas: mongodb+srv://...
-      - key: MONGO_DB
-        value: tracking
+      - key: TRACKING_DATABASE_URL
+        sync: false # Neon: postgres://...neon.tech/tracking?sslmode=require
 
   - type: web
     name: cargoflow-notification

@@ -31,12 +31,13 @@ func (s *Server) AddPosition(ctx context.Context, req *trackingv1.AddPositionReq
 	if err != nil {
 		return nil, err
 	}
-	if err := validateShipmentID(req.GetShipmentId()); err != nil {
+	shipmentID, err := parseShipmentID(req.GetShipmentId())
+	if err != nil {
 		return nil, err
 	}
 	p, err := s.svc.AddPosition(ctx, service.AddPositionInput{
 		UserID:     userID,
-		ShipmentID: req.GetShipmentId(),
+		ShipmentID: shipmentID,
 		Station:    req.GetStation(),
 		Lat:        req.GetLat(),
 		Lon:        req.GetLon(),
@@ -52,10 +53,11 @@ func (s *Server) GetRoute(ctx context.Context, req *trackingv1.GetRouteRequest) 
 	if err != nil {
 		return nil, err
 	}
-	if err := validateShipmentID(req.GetShipmentId()); err != nil {
+	shipmentID, err := parseShipmentID(req.GetShipmentId())
+	if err != nil {
 		return nil, err
 	}
-	route, err := s.svc.GetRoute(ctx, userID, req.GetShipmentId())
+	route, err := s.svc.GetRoute(ctx, userID, shipmentID)
 	if err != nil {
 		return nil, s.toStatus(ctx, err)
 	}
@@ -66,17 +68,18 @@ func (s *Server) GetRoute(ctx context.Context, req *trackingv1.GetRouteRequest) 
 	return resp, nil
 }
 
-func validateShipmentID(id string) error {
-	if _, err := uuid.Parse(id); err != nil {
-		return status.Error(codes.InvalidArgument, "shipment_id must be a UUID")
+func parseShipmentID(raw string) (uuid.UUID, error) {
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return uuid.Nil, status.Error(codes.InvalidArgument, "shipment_id must be a UUID")
 	}
-	return nil
+	return id, nil
 }
 
 func toProto(p service.Position) *trackingv1.Position {
 	return &trackingv1.Position{
-		Id:         p.ID,
-		ShipmentId: p.ShipmentID,
+		Id:         p.ID.String(),
+		ShipmentId: p.ShipmentID.String(),
 		Station:    p.Station,
 		Lat:        p.Lat,
 		Lon:        p.Lon,

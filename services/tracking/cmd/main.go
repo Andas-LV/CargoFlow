@@ -13,15 +13,16 @@ import (
 	"github.com/Andas-LV/cargoflow/pkg/grpcx"
 	"github.com/Andas-LV/cargoflow/pkg/health"
 	"github.com/Andas-LV/cargoflow/pkg/logger"
-	"github.com/Andas-LV/cargoflow/pkg/mongox"
 	"github.com/Andas-LV/cargoflow/pkg/natsx"
 	"github.com/Andas-LV/cargoflow/pkg/otelx"
+	"github.com/Andas-LV/cargoflow/pkg/postgres"
 	"github.com/Andas-LV/cargoflow/pkg/shutdown"
 	"github.com/Andas-LV/cargoflow/services/tracking/internal/config"
 	"github.com/Andas-LV/cargoflow/services/tracking/internal/consumer"
 	"github.com/Andas-LV/cargoflow/services/tracking/internal/grpcserver"
 	"github.com/Andas-LV/cargoflow/services/tracking/internal/repository"
 	"github.com/Andas-LV/cargoflow/services/tracking/internal/service"
+	"github.com/Andas-LV/cargoflow/services/tracking/migrations"
 )
 
 const serviceName = "tracking"
@@ -49,16 +50,17 @@ func run() error {
 	}
 	defer func() { _ = otelShutdown(context.Background()) }()
 
-	mongoClient, err := mongox.Connect(ctx, cfg.MongoURI)
+	pool, err := postgres.NewPool(ctx, cfg.DatabaseURL)
 	if err != nil {
 		return err
 	}
-	defer func() { _ = mongoClient.Disconnect(context.Background()) }()
-
-	positions := repository.NewPositions(mongoClient.Database(cfg.MongoDB))
-	if err := positions.EnsureIndexes(ctx); err != nil {
-		return err
+	defer pool.Close()
+	if cfg.MigrateOnStart {
+		if err := postgres.Migrate(ctx, pool, migrations.FS, log); err != nil {
+			return err
+		}
 	}
+	positions := repository.NewPositions(pool)
 
 	nc, err := natsx.Connect(cfg.NATS, serviceName, log)
 	if err != nil {
@@ -87,8 +89,8 @@ func run() error {
 	trackingv1.RegisterTrackingServiceServer(grpcSrv, grpcserver.New(svc, log))
 
 	httpSrv := health.Server(cfg.HTTPAddr, health.Checks{
-		"mongo": mongox.Check(mongoClient),
-		"nats":  nc.Check,
+		"postgres": pool.Ping,
+		"nats":     nc.Check,
 	})
 
 	g := shutdown.New(ctx, 10*time.Second)

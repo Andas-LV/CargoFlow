@@ -14,7 +14,7 @@ x-app-env: &app-env
   TRACKING_GRPC_ADDR: tracking:50053
   AUTH_DATABASE_URL: postgres://cargo:cargo@postgres:5432/auth?sslmode=disable
   SHIPMENT_DATABASE_URL: postgres://cargo:cargo@postgres:5432/shipment?sslmode=disable
-  MONGO_URI: mongodb://mongo:27017
+  TRACKING_DATABASE_URL: postgres://cargo:cargo@postgres:5432/tracking?sslmode=disable
   REDIS_URL: redis://redis:6379/0
   NATS_URL: nats://nats:4222
   OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4317
@@ -43,20 +43,9 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cargo -d shipment"]
+      test: ["CMD-SHELL", "pg_isready -U cargo -d tracking"]
       interval: 5s
       timeout: 3s
-      retries: 20
-
-  mongo:
-    image: mongo:7
-    ports: ["27017:27017"]
-    volumes:
-      - mongo-data:/data/db
-    healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
-      interval: 5s
-      timeout: 5s
       retries: 20
 
   redis:
@@ -111,7 +100,7 @@ services:
     build: { context: .., dockerfile: services/tracking/Dockerfile }
     ports: ["50053:50053", "8083:8083"]
     depends_on:
-      mongo: { condition: service_healthy }
+      postgres: { condition: service_healthy }
       nats: { condition: service_healthy }
 
   notification:
@@ -133,6 +122,5 @@ services:
 
 volumes:
   postgres-data:
-  mongo-data:
   redis-data:
   nats-data:
