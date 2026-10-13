@@ -190,5 +190,6 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 
 ## Документация
 
+- [docs/learning/](docs/learning/README.md) — короткий курс по проекту для фронтендера: Go, gRPC, структура, путь запроса.
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — сервисы, границы данных, события, outbox, трейсинг, безопасность.
 - [docs/LIBRARIES.md](docs/LIBRARIES.md) — зависимости и примеры их использования в коде проекта.

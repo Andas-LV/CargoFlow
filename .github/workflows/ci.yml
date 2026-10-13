@@ -10,20 +10,23 @@ permissions:
 
 concurrency:
   group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  # Superseded PR runs are cancelled; every commit on main is still checked.
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   proto:
     name: Proto lint & codegen check
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - uses: bufbuild/buf-action@v1
         with:
           setup_only: true
+          version: 1.73.0 # same as local; newer buf may add lint rules
       - name: buf lint
         working-directory: proto
         run: buf lint
@@ -33,36 +36,43 @@ jobs:
           go tool sqlc generate -f services/auth/sqlc.yaml
           go tool sqlc generate -f services/shipment/sqlc.yaml
           go tool sqlc generate -f services/tracking/sqlc.yaml
-          git diff --exit-code -- gen services
+          # git status also catches new generated files that were never committed.
+          if [ -n "$(git status --porcelain -- gen services)" ]; then
+            git status --porcelain -- gen services
+            git diff -- gen services
+            echo "::error::Generated code is out of date. Run 'make generate' and commit the result."
+            exit 1
+          fi
 
   go:
     name: Vet, lint & test
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
       - name: go vet
-        run: go vet ./...
+        run: go vet -tags integration ./...
       - name: golangci-lint
         run: go tool golangci-lint run ./...
-      - name: Unit tests
-        run: go test -race ./...
-      - name: Integration tests (testcontainers)
+      # One run covers unit and integration tests (testcontainers, Docker is available on the runner).
+      - name: Tests
         run: go test -race -tags integration ./...
 
   docker:
     name: Docker build (${{ matrix.service }})
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         service: [gateway, auth, shipment, tracking, notification]
     steps:
-      - uses: actions/checkout@v4
-      - uses: docker/setup-buildx-action@v3
-      - uses: docker/build-push-action@v6
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - uses: docker/build-push-action@v7
         with:
           context: .
           file: services/${{ matrix.service }}/Dockerfile
