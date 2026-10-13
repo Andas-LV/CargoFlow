@@ -27,7 +27,7 @@ const serviceName = "auth"
 
 func main() {
 	if err := run(); err != nil {
-		slog.Error("service stopped with error", "service", serviceName, "err", err)
+		slog.Error(serviceName+" stopped with error", "err", err)
 		os.Exit(1)
 	}
 }

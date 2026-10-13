@@ -62,7 +62,15 @@ make migrate-up        # миграции auth, shipment и tracking
 make apps-up           # все 5 сервисов в Docker
 ```
 
-Вместо `make apps-up` можно запускать сервисы из исходников, каждый в своём терминале: `make run-auth`, `make run-shipment`, `make run-tracking`, `make run-notification`, `make run-gateway`.
+Есть три способа запустить сервисы, отдельный терминал на каждый сервис не нужен:
+
+| Способ | Команда | Когда удобно |
+|---|---|---|
+| Все в Docker | `make apps-up`, логи — `make apps-logs`, остановка — `make infra-down` | просто поднять бэкенд для фронта |
+| Все из исходников в одном терминале | `make run-all` (Ctrl+C останавливает все) | правишь Go-код: перезапуск собирает свежие бинарники |
+| Один сервис из исходников | `make run-shipment` | отлаживаешь один сервис, остальные в Docker или в `run-all` |
+
+Если один сервис запущен из исходников, а остальные в Docker, сначала останови его контейнер, иначе порт будет занят: `docker compose -f deploy/docker-compose.yml stop shipment`.
 
 Проверка: `curl localhost:8080/readyz` → `{"auth":"ok","redis":"ok","shipment":"ok","tracking":"ok"}`.
 
@@ -157,8 +165,9 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 | `make sqlc` | генерация типобезопасного кода из `services/*/queries/*.sql` |
 | `make migrate-up` / `migrate-down` / `migrate-status` | миграции goose для auth, shipment и tracking |
 | `make infra-up` / `infra-down` / `infra-reset` | инфраструктура в Docker (`reset` удаляет данные) |
-| `make apps-up` | собрать образы и поднять все сервисы в Docker |
-| `make run-<service>` | запустить сервис из исходников |
+| `make apps-up` / `make apps-logs` | собрать образы и поднять все сервисы в Docker / смотреть их логи |
+| `make run-all` | все сервисы из исходников в одном терминале |
+| `make run-<service>` | запустить один сервис из исходников |
 | `make test` / `make test-integration` | unit-тесты / интеграционные на testcontainers (Postgres) |
 | `make lint` | buf lint, go vet, golangci-lint |
 | `make build` / `make docker-build` | бинарники в `bin/` / Docker-образы |

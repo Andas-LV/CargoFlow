@@ -77,8 +77,22 @@ infra-reset: ## Stop infrastructure and delete all data volumes
 apps-up: ## Build and start all Go services in Docker (profile "apps")
 	$(COMPOSE) --profile apps up -d --build
 
+.PHONY: apps-logs
+apps-logs: ## Follow logs of the Go services running in Docker
+	$(COMPOSE) --profile apps logs -f $(SERVICES)
+
 # ---------- run ----------
+.PHONY: run-all
+run-all: build ## Run all services from source in one terminal (Ctrl+C stops all)
+	@echo "stopping Go service containers (if any) to free their ports"
+	@$(COMPOSE) --profile apps stop $(SERVICES) >/dev/null 2>&1 || true
+	@$(MAKE) --no-print-directory -j$(words $(SERVICES)) $(addprefix start-,$(SERVICES))
+
+start-%:
+	./bin/$*$(EXE)
+
 run-%: ## Run one service locally: make run-auth, make run-gateway, ...
+	@$(COMPOSE) --profile apps stop $* >/dev/null 2>&1 || true
 	go run ./services/$*/cmd
 
 # ---------- quality ----------
