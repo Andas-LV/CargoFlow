@@ -1,0 +1,55 @@
+syntax = "proto3";
+
+package tracking.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Andas-LV/cargoflow/gen/go/tracking/v1;trackingv1";
+
+// TrackingService stores movement events and exposes the route history of a shipment.
+service TrackingService {
+  // AddPosition records that a shipment passed a station.
+  rpc AddPosition(AddPositionRequest) returns (AddPositionResponse) {
+    option (google.api.http) = {
+      post: "/v1/shipments/{shipment_id}/positions"
+      body: "*"
+    };
+  }
+
+  // GetRoute returns all recorded positions of a shipment in chronological order.
+  rpc GetRoute(GetRouteRequest) returns (GetRouteResponse) {
+    option (google.api.http) = {get: "/v1/shipments/{shipment_id}/route"};
+  }
+}
+
+message Position {
+  string id = 1;
+  string shipment_id = 2;
+  string station = 3;
+  double lat = 4;
+  double lon = 5;
+  // What produced this position: "manual" or an event subject such as "shipment.created".
+  string source = 6;
+  google.protobuf.Timestamp recorded_at = 7;
+}
+
+message AddPositionRequest {
+  string shipment_id = 1 [(google.api.field_behavior) = REQUIRED];
+  string station = 2 [(google.api.field_behavior) = REQUIRED];
+  double lat = 3;
+  double lon = 4;
+}
+
+message AddPositionResponse {
+  Position position = 1;
+}
+
+message GetRouteRequest {
+  string shipment_id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetRouteResponse {
+  repeated Position positions = 1;
+}

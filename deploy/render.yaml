@@ -1,0 +1,157 @@
+# Render Blueprint for the CargoFlow backend.
+# Render reads render.yaml from the repo root by default; point the Blueprint to
+# deploy/render.yaml in the dashboard (New → Blueprint → "Blueprint file path").
+#
+# Topology:
+#   gateway       web    public REST API (the only internet-facing service)
+#   auth          pserv  gRPC :50051, private network only
+#   shipment      pserv  gRPC :50052, private network only
+#   tracking      pserv  gRPC :50053, private network only
+#   notification  web    NATS consumer + /healthz
+#
+# Plans: private services (pserv) have no free plan, the smallest is 0.5c-512mb (Starter).
+# Free web services cannot receive private-network traffic, so the gRPC services cannot be
+# free web services either. To cut costs you can merge auth/shipment/tracking into one
+# paid instance later; the code already supports separate addresses per service.
+#
+# Free web services sleep after ~15 minutes without inbound HTTP traffic. For gateway that
+# only means a cold start; for notification it also pauses the NATS consumer (durable
+# consumers keep the messages, they are processed after wake-up).
+#
+# External managed services (fill in the Dashboard; values are prompted on first sync):
+#   Postgres → Neon (one database per service), MongoDB → Atlas, Redis → Upstash or Render
+#   Key Value, NATS → Synadia Cloud (upload the .creds file as a Secret File named
+#   nats.creds, it is mounted at /etc/secrets/nats.creds), traces → OTLP/gRPC collector.
+
+envVarGroups:
+  - name: cargoflow-shared
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: LOG_LEVEL
+        value: info
+      - key: MIGRATE_ON_START
+        value: "true"
+      - key: REDIS_URL
+        sync: false
+      - key: NATS_URL
+        sync: false
+      # Leave empty if your NATS server does not use .creds authentication.
+      - key: NATS_CREDS_FILE
+        value: /etc/secrets/nats.creds
+      - key: OTEL_EXPORTER_OTLP_ENDPOINT
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_HEADERS
+        sync: false
+      - key: OTEL_EXPORTER_OTLP_INSECURE
+        value: "false"
+      # Internal gRPC addresses. The private hostname equals the service name unless Render
+      # had to add a suffix; check it on the service's "Connect → Internal" tab.
+      - key: AUTH_GRPC_ADDR
+        value: cargoflow-auth:50051
+      - key: SHIPMENT_GRPC_ADDR
+        value: cargoflow-shipment:50052
+      - key: TRACKING_GRPC_ADDR
+        value: cargoflow-tracking:50053
+
+services:
+  - type: web
+    name: cargoflow-gateway
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: .
+    dockerfilePath: ./services/gateway/Dockerfile
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: cargoflow-shared
+      - key: PORT
+        value: "10000"
+      - key: GATEWAY_HTTP_ADDR
+        value: ":10000"
+      - key: CORS_ALLOWED_ORIGINS
+        sync: false # e.g. https://cargoflow.vercel.app,http://localhost:5173
+      - key: RATE_LIMIT_REQUESTS
+        value: "100"
+      - key: RATE_LIMIT_WINDOW
+        value: 1m
+
+  - type: pserv
+    name: cargoflow-auth
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerContext: .
+    dockerfilePath: ./services/auth/Dockerfile
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: cargoflow-shared
+      - key: AUTH_HTTP_ADDR
+        value: ":8081"
+      - key: AUTH_DATABASE_URL
+        sync: false # Neon: postgres://...neon.tech/auth?sslmode=require
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 168h
+
+  - type: pserv
+    name: cargoflow-shipment
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerContext: .
+    dockerfilePath: ./services/shipment/Dockerfile
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: cargoflow-shared
+      - key: SHIPMENT_HTTP_ADDR
+        value: ":8082"
+      - key: SHIPMENT_DATABASE_URL
+        sync: false # Neon: postgres://...neon.tech/shipment?sslmode=require
+      - key: OUTBOX_POLL_INTERVAL
+        value: 1s
+      - key: SHIPMENT_CACHE_TTL
+        value: 5m
+
+  - type: pserv
+    name: cargoflow-tracking
+    runtime: docker
+    plan: 0.5c-512mb
+    region: frankfurt
+    dockerContext: .
+    dockerfilePath: ./services/tracking/Dockerfile
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: cargoflow-shared
+      - key: TRACKING_HTTP_ADDR
+        value: ":8083"
+      - key: MONGO_URI
+        sync: false # Atlas: mongodb+srv://...
+      - key: MONGO_DB
+        value: tracking
+
+  - type: web
+    name: cargoflow-notification
+    runtime: docker
+    plan: free
+    region: frankfurt
+    dockerContext: .
+    dockerfilePath: ./services/notification/Dockerfile
+    healthCheckPath: /healthz
+    autoDeployTrigger: checksPass
+    envVars:
+      - fromGroup: cargoflow-shared
+      - key: PORT
+        value: "10000"
+      - key: NOTIFICATION_HTTP_ADDR
+        value: ":10000"
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_CHAT_ID
+        sync: false

@@ -1,0 +1,138 @@
+# Local development environment.
+#
+#   docker compose -f deploy/docker-compose.yml up -d --wait                 # infrastructure only
+#   docker compose -f deploy/docker-compose.yml --profile apps up -d --build # + all Go services
+#
+# Jaeger UI: http://localhost:16686   NATS monitoring: http://localhost:8222
+name: cargoflow
+
+# Settings for Go services running inside compose: hostnames of other containers instead of
+# localhost. They override whatever is in ../.env (which targets `go run` on the host).
+x-app-env: &app-env
+  AUTH_GRPC_ADDR: auth:50051
+  SHIPMENT_GRPC_ADDR: shipment:50052
+  TRACKING_GRPC_ADDR: tracking:50053
+  AUTH_DATABASE_URL: postgres://cargo:cargo@postgres:5432/auth?sslmode=disable
+  SHIPMENT_DATABASE_URL: postgres://cargo:cargo@postgres:5432/shipment?sslmode=disable
+  MONGO_URI: mongodb://mongo:27017
+  REDIS_URL: redis://redis:6379/0
+  NATS_URL: nats://nats:4222
+  OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4317
+  OTEL_EXPORTER_OTLP_INSECURE: "true"
+  MIGRATE_ON_START: "true"
+
+x-app: &app
+  profiles: [apps]
+  restart: unless-stopped
+  env_file:
+    - path: ../.env
+      required: false
+  environment:
+    <<: *app-env
+
+services:
+  # ---------------- infrastructure ----------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cargo
+      POSTGRES_PASSWORD: cargo
+    # Host port 5434: 5432/5433 are often taken by a local PostgreSQL or other projects.
+    ports: ["5434:5432"]
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cargo -d shipment"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  mongo:
+    image: mongo:7
+    ports: ["27017:27017"]
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    ports: ["6379:6379"]
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  nats:
+    image: nats:2-alpine
+    command: ["-js", "-sd", "/data", "-m", "8222"]
+    ports: ["4222:4222", "8222:8222"]
+    volumes:
+      - nats-data:/data
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:8222/healthz?js-enabled-only=true"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Jaeger v2 (all-in-one by default): OTLP gRPC 4317, OTLP HTTP 4318, UI 16686.
+  # jaegertracing/all-in-one (v1) is end-of-life; v2 is its replacement.
+  jaeger:
+    image: jaegertracing/jaeger:2.22.0
+    ports: ["4317:4317", "4318:4318", "16686:16686"]
+
+  # ---------------- Go services (profile "apps") ----------------
+  auth:
+    <<: *app
+    build: { context: .., dockerfile: services/auth/Dockerfile }
+    ports: ["50051:50051", "8081:8081"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+
+  shipment:
+    <<: *app
+    build: { context: .., dockerfile: services/shipment/Dockerfile }
+    ports: ["50052:50052", "8082:8082"]
+    depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  tracking:
+    <<: *app
+    build: { context: .., dockerfile: services/tracking/Dockerfile }
+    ports: ["50053:50053", "8083:8083"]
+    depends_on:
+      mongo: { condition: service_healthy }
+      nats: { condition: service_healthy }
+
+  notification:
+    <<: *app
+    build: { context: .., dockerfile: services/notification/Dockerfile }
+    ports: ["8085:8085"]
+    depends_on:
+      nats: { condition: service_healthy }
+
+  gateway:
+    <<: *app
+    build: { context: .., dockerfile: services/gateway/Dockerfile }
+    ports: ["8080:8080"]
+    depends_on:
+      redis: { condition: service_healthy }
+      auth: { condition: service_started }
+      shipment: { condition: service_started }
+      tracking: { condition: service_started }
+
+volumes:
+  postgres-data:
+  mongo-data:
+  redis-data:
+  nats-data:

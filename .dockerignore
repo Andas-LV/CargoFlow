@@ -1,0 +1,11 @@
+.git
+.github
+.env
+.env.*
+*.creds
+web
+docs
+deploy
+bin
+dist
+**/*_test.go

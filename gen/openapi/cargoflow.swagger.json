@@ -1,0 +1,648 @@
+{
+  "swagger": "2.0",
+  "info": {
+    "title": "CargoFlow API",
+    "version": "1.0"
+  },
+  "tags": [
+    {
+      "name": "AuthService",
+      "description": "AuthService issues and validates JWT tokens."
+    },
+    {
+      "name": "ShipmentService",
+      "description": "ShipmentService manages transportation requests (shipments).\nAll methods require an authenticated user; the gateway passes it as `x-user-id` metadata."
+    },
+    {
+      "name": "TrackingService",
+      "description": "TrackingService stores movement events and exposes the route history of a shipment."
+    }
+  ],
+  "consumes": [
+    "application/json"
+  ],
+  "produces": [
+    "application/json"
+  ],
+  "paths": {
+    "/v1/auth/login": {
+      "post": {
+        "summary": "Login exchanges credentials for an access/refresh token pair.",
+        "operationId": "AuthService_Login",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/LoginResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/LoginRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ],
+        "security": []
+      }
+    },
+    "/v1/auth/refresh": {
+      "post": {
+        "summary": "Refresh rotates a refresh token and returns a new token pair.",
+        "operationId": "AuthService_Refresh",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RefreshResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RefreshRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ],
+        "security": []
+      }
+    },
+    "/v1/auth/register": {
+      "post": {
+        "summary": "Register creates a new user account.",
+        "operationId": "AuthService_Register",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/RegisterResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/RegisterRequest"
+            }
+          }
+        ],
+        "tags": [
+          "AuthService"
+        ],
+        "security": []
+      }
+    },
+    "/v1/shipments": {
+      "get": {
+        "summary": "ListShipments returns the caller's shipments, newest first.",
+        "operationId": "ShipmentService_ListShipments",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/ListShipmentsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "pageSize",
+            "description": "Max items to return, 1..100. Defaults to 20.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "ShipmentService"
+        ]
+      },
+      "post": {
+        "operationId": "ShipmentService_CreateShipment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateShipmentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateShipmentRequest"
+            }
+          }
+        ],
+        "tags": [
+          "ShipmentService"
+        ]
+      }
+    },
+    "/v1/shipments/{id}": {
+      "get": {
+        "operationId": "ShipmentService_GetShipment",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetShipmentResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "ShipmentService"
+        ]
+      }
+    },
+    "/v1/shipments/{id}/status": {
+      "patch": {
+        "operationId": "ShipmentService_UpdateShipmentStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UpdateShipmentStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/UpdateShipmentStatusBody"
+            }
+          }
+        ],
+        "tags": [
+          "ShipmentService"
+        ]
+      }
+    },
+    "/v1/shipments/{shipmentId}/positions": {
+      "post": {
+        "summary": "AddPosition records that a shipment passed a station.",
+        "operationId": "TrackingService_AddPosition",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/AddPositionResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/AddPositionBody"
+            }
+          }
+        ],
+        "tags": [
+          "TrackingService"
+        ]
+      }
+    },
+    "/v1/shipments/{shipmentId}/route": {
+      "get": {
+        "summary": "GetRoute returns all recorded positions of a shipment in chronological order.",
+        "operationId": "TrackingService_GetRoute",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetRouteResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "shipmentId",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "TrackingService"
+        ]
+      }
+    }
+  },
+  "definitions": {
+    "AddPositionBody": {
+      "type": "object",
+      "properties": {
+        "station": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number",
+          "format": "double"
+        },
+        "lon": {
+          "type": "number",
+          "format": "double"
+        }
+      },
+      "required": [
+        "station"
+      ]
+    },
+    "AddPositionResponse": {
+      "type": "object",
+      "properties": {
+        "position": {
+          "$ref": "#/definitions/Position"
+        }
+      }
+    },
+    "Any": {
+      "type": "object",
+      "properties": {
+        "@type": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": {}
+    },
+    "CargoType": {
+      "type": "string",
+      "enum": [
+        "CARGO_TYPE_UNSPECIFIED",
+        "CARGO_TYPE_WAGON",
+        "CARGO_TYPE_CONTAINER"
+      ],
+      "default": "CARGO_TYPE_UNSPECIFIED"
+    },
+    "CreateShipmentRequest": {
+      "type": "object",
+      "properties": {
+        "cargoType": {
+          "$ref": "#/definitions/CargoType"
+        },
+        "origin": {
+          "type": "string"
+        },
+        "destination": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "cargoType",
+        "origin",
+        "destination"
+      ]
+    },
+    "CreateShipmentResponse": {
+      "type": "object",
+      "properties": {
+        "shipment": {
+          "$ref": "#/definitions/Shipment"
+        }
+      }
+    },
+    "GetRouteResponse": {
+      "type": "object",
+      "properties": {
+        "positions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Position"
+          }
+        }
+      }
+    },
+    "GetShipmentResponse": {
+      "type": "object",
+      "properties": {
+        "shipment": {
+          "$ref": "#/definitions/Shipment"
+        }
+      }
+    },
+    "ListShipmentsResponse": {
+      "type": "object",
+      "properties": {
+        "shipments": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Shipment"
+          }
+        }
+      }
+    },
+    "LoginRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
+    },
+    "LoginResponse": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/TokenPair"
+        }
+      }
+    },
+    "Position": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "shipmentId": {
+          "type": "string"
+        },
+        "station": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number",
+          "format": "double"
+        },
+        "lon": {
+          "type": "number",
+          "format": "double"
+        },
+        "source": {
+          "type": "string",
+          "description": "What produced this position: \"manual\" or an event subject such as \"shipment.created\"."
+        },
+        "recordedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "RefreshRequest": {
+      "type": "object",
+      "properties": {
+        "refreshToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "refreshToken"
+      ]
+    },
+    "RefreshResponse": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "$ref": "#/definitions/TokenPair"
+        }
+      }
+    },
+    "RegisterRequest": {
+      "type": "object",
+      "properties": {
+        "email": {
+          "type": "string"
+        },
+        "password": {
+          "type": "string",
+          "description": "At least 8 characters."
+        }
+      },
+      "required": [
+        "email",
+        "password"
+      ]
+    },
+    "RegisterResponse": {
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string"
+        },
+        "email": {
+          "type": "string"
+        }
+      }
+    },
+    "Shipment": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "ownerId": {
+          "type": "string"
+        },
+        "cargoType": {
+          "$ref": "#/definitions/CargoType"
+        },
+        "origin": {
+          "type": "string",
+          "description": "Origin station, e.g. \"Astana-1\"."
+        },
+        "destination": {
+          "type": "string",
+          "description": "Destination station, e.g. \"Almaty-2\"."
+        },
+        "status": {
+          "$ref": "#/definitions/ShipmentStatus"
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
+    "ShipmentStatus": {
+      "type": "string",
+      "enum": [
+        "SHIPMENT_STATUS_UNSPECIFIED",
+        "SHIPMENT_STATUS_CREATED",
+        "SHIPMENT_STATUS_IN_TRANSIT",
+        "SHIPMENT_STATUS_DELIVERED",
+        "SHIPMENT_STATUS_CANCELLED"
+      ],
+      "default": "SHIPMENT_STATUS_UNSPECIFIED"
+    },
+    "Status": {
+      "type": "object",
+      "properties": {
+        "code": {
+          "type": "integer",
+          "format": "int32"
+        },
+        "message": {
+          "type": "string"
+        },
+        "details": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Any"
+          }
+        }
+      }
+    },
+    "TokenPair": {
+      "type": "object",
+      "properties": {
+        "accessToken": {
+          "type": "string"
+        },
+        "refreshToken": {
+          "type": "string"
+        },
+        "expiresIn": {
+          "type": "string",
+          "format": "int64",
+          "description": "Access token lifetime in seconds."
+        }
+      }
+    },
+    "UpdateShipmentStatusBody": {
+      "type": "object",
+      "properties": {
+        "status": {
+          "$ref": "#/definitions/ShipmentStatus"
+        }
+      },
+      "required": [
+        "status"
+      ]
+    },
+    "UpdateShipmentStatusResponse": {
+      "type": "object",
+      "properties": {
+        "shipment": {
+          "$ref": "#/definitions/Shipment"
+        }
+      }
+    }
+  },
+  "securityDefinitions": {
+    "Bearer": {
+      "type": "apiKey",
+      "description": "Access token: `Bearer \u003caccess_token\u003e`",
+      "name": "Authorization",
+      "in": "header"
+    }
+  },
+  "security": [
+    {
+      "Bearer": []
+    }
+  ]
+}

@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+// Event payloads published to NATS JetStream (stream CARGO).
+// Messages are protobuf-encoded; trace context and Nats-Msg-Id travel in NATS headers.
+// Statuses and cargo types are plain strings so that consumers don't depend on API enums.
+package events.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Andas-LV/cargoflow/gen/go/events/v1;eventsv1";
+
+// Subject: shipment.created. Publisher: shipment (via outbox).
+message ShipmentCreated {
+  string event_id = 1;
+  string shipment_id = 2;
+  string owner_id = 3;
+  // "wagon" | "container"
+  string cargo_type = 4;
+  string origin = 5;
+  string destination = 6;
+  google.protobuf.Timestamp occurred_at = 7;
+}
+
+// Subject: shipment.status_changed. Publisher: shipment (via outbox).
+message ShipmentStatusChanged {
+  string event_id = 1;
+  string shipment_id = 2;
+  string owner_id = 3;
+  // "created" | "in_transit" | "delivered" | "cancelled"
+  string old_status = 4;
+  string new_status = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}
+
+// Subject: tracking.position_updated. Publisher: tracking.
+message PositionUpdated {
+  string event_id = 1;
+  string shipment_id = 2;
+  string station = 3;
+  double lat = 4;
+  double lon = 5;
+  google.protobuf.Timestamp occurred_at = 6;
+}

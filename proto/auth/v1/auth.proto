@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package auth.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "protoc-gen-openapiv2/options/annotations.proto";
+
+option go_package = "github.com/Andas-LV/cargoflow/gen/go/auth/v1;authv1";
+// API-wide OpenAPI metadata. This file is first in the merged spec, so its info wins.
+option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_swagger) = {
+  info: {
+    title: "CargoFlow API"
+    version: "1.0"
+  }
+  security_definitions: {
+    security: {
+      key: "Bearer"
+      value: {
+        type: TYPE_API_KEY
+        in: IN_HEADER
+        name: "Authorization"
+        description: "Access token: `Bearer <access_token>`"
+      }
+    }
+  }
+  security: {
+    security_requirement: {
+      key: "Bearer"
+      value: {}
+    }
+  }
+};
+
+// AuthService issues and validates JWT tokens.
+service AuthService {
+  // Register creates a new user account.
+  rpc Register(RegisterRequest) returns (RegisterResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/register"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {security: {}};
+  }
+
+  // Login exchanges credentials for an access/refresh token pair.
+  rpc Login(LoginRequest) returns (LoginResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/login"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {security: {}};
+  }
+
+  // Refresh rotates a refresh token and returns a new token pair.
+  rpc Refresh(RefreshRequest) returns (RefreshResponse) {
+    option (google.api.http) = {
+      post: "/v1/auth/refresh"
+      body: "*"
+    };
+    option (grpc.gateway.protoc_gen_openapiv2.options.openapiv2_operation) = {security: {}};
+  }
+
+  // ValidateToken checks an access token. Internal: used by the gateway, not exposed over REST.
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+}
+
+message TokenPair {
+  string access_token = 1;
+  string refresh_token = 2;
+  // Access token lifetime in seconds.
+  int64 expires_in = 3;
+}
+
+message RegisterRequest {
+  string email = 1 [(google.api.field_behavior) = REQUIRED];
+  // At least 8 characters.
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  string email = 2;
+}
+
+message LoginRequest {
+  string email = 1 [(google.api.field_behavior) = REQUIRED];
+  string password = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message LoginResponse {
+  TokenPair tokens = 1;
+}
+
+message RefreshRequest {
+  string refresh_token = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message RefreshResponse {
+  TokenPair tokens = 1;
+}
+
+message ValidateTokenRequest {
+  string access_token = 1;
+}
+
+message ValidateTokenResponse {
+  string user_id = 1;
+}

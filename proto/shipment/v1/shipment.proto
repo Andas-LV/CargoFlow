@@ -1,0 +1,99 @@
+syntax = "proto3";
+
+package shipment.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Andas-LV/cargoflow/gen/go/shipment/v1;shipmentv1";
+
+// ShipmentService manages transportation requests (shipments).
+// All methods require an authenticated user; the gateway passes it as `x-user-id` metadata.
+service ShipmentService {
+  rpc CreateShipment(CreateShipmentRequest) returns (CreateShipmentResponse) {
+    option (google.api.http) = {
+      post: "/v1/shipments"
+      body: "*"
+    };
+  }
+
+  rpc GetShipment(GetShipmentRequest) returns (GetShipmentResponse) {
+    option (google.api.http) = {get: "/v1/shipments/{id}"};
+  }
+
+  // ListShipments returns the caller's shipments, newest first.
+  rpc ListShipments(ListShipmentsRequest) returns (ListShipmentsResponse) {
+    option (google.api.http) = {get: "/v1/shipments"};
+  }
+
+  rpc UpdateShipmentStatus(UpdateShipmentStatusRequest) returns (UpdateShipmentStatusResponse) {
+    option (google.api.http) = {
+      patch: "/v1/shipments/{id}/status"
+      body: "*"
+    };
+  }
+}
+
+enum CargoType {
+  CARGO_TYPE_UNSPECIFIED = 0;
+  CARGO_TYPE_WAGON = 1;
+  CARGO_TYPE_CONTAINER = 2;
+}
+
+enum ShipmentStatus {
+  SHIPMENT_STATUS_UNSPECIFIED = 0;
+  SHIPMENT_STATUS_CREATED = 1;
+  SHIPMENT_STATUS_IN_TRANSIT = 2;
+  SHIPMENT_STATUS_DELIVERED = 3;
+  SHIPMENT_STATUS_CANCELLED = 4;
+}
+
+message Shipment {
+  string id = 1;
+  string owner_id = 2;
+  CargoType cargo_type = 3;
+  // Origin station, e.g. "Astana-1".
+  string origin = 4;
+  // Destination station, e.g. "Almaty-2".
+  string destination = 5;
+  ShipmentStatus status = 6;
+  google.protobuf.Timestamp created_at = 7;
+  google.protobuf.Timestamp updated_at = 8;
+}
+
+message CreateShipmentRequest {
+  CargoType cargo_type = 1 [(google.api.field_behavior) = REQUIRED];
+  string origin = 2 [(google.api.field_behavior) = REQUIRED];
+  string destination = 3 [(google.api.field_behavior) = REQUIRED];
+}
+
+message CreateShipmentResponse {
+  Shipment shipment = 1;
+}
+
+message GetShipmentRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetShipmentResponse {
+  Shipment shipment = 1;
+}
+
+message ListShipmentsRequest {
+  // Max items to return, 1..100. Defaults to 20.
+  int32 page_size = 1;
+}
+
+message ListShipmentsResponse {
+  repeated Shipment shipments = 1;
+}
+
+message UpdateShipmentStatusRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+  ShipmentStatus status = 2 [(google.api.field_behavior) = REQUIRED];
+}
+
+message UpdateShipmentStatusResponse {
+  Shipment shipment = 1;
+}

@@ -1,0 +1,51 @@
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: standard # errcheck, govet, ineffassign, staticcheck, unused
+  enable:
+    - bodyclose
+    - errorlint
+    - gocritic
+    - misspell
+    - nilerr
+    - noctx
+    - prealloc
+    - revive
+    - unconvert
+    - usestdlibvars
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: true # internal packages; doc comments on every export would be noise
+        - name: package-comments
+          disabled: true
+    gocritic:
+      disabled-checks:
+        - ifElseChain
+  exclusions:
+    generated: strict
+    presets:
+      - comments
+      - std-error-handling
+    paths:
+      - gen/
+      - internal/repository/db/
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/Andas-LV/cargoflow
+  exclusions:
+    generated: strict
+    paths:
+      - gen/
+      - internal/repository/db/
