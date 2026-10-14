@@ -83,7 +83,7 @@ apps-logs: ## Follow logs of the Go services running in Docker
 
 # ---------- run ----------
 .PHONY: run-all
-run-all: build ## Run all services from source in one terminal (Ctrl+C stops all)
+run-all: infra-up migrate-up build ## Start infra, apply migrations, run all services from source (Ctrl+C stops all)
 	@echo "stopping Go service containers (if any) to free their ports"
 	@$(COMPOSE) --profile apps stop $(SERVICES) >/dev/null 2>&1 || true
 	@$(MAKE) --no-print-directory -j$(words $(SERVICES)) $(addprefix start-,$(SERVICES))

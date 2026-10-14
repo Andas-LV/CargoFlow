@@ -96,7 +96,7 @@ func (q *Queries) GetShipment(ctx context.Context, id uuid.UUID) (Shipment, erro
 | `make infra-up` / `infra-down` | поднять / остановить инфраструктуру |
 | `make migrate-up` | применить миграции |
 | `make apps-up` / `apps-logs` | все сервисы в Docker / их логи |
-| `make run-all` | все сервисы из исходников в одном терминале |
+| `make run-all` | всё сразу: инфраструктура, миграции и 5 сервисов в одном терминале |
 | `make proto` | перегенерировать код из `.proto` |
 | `make sqlc` | перегенерировать код из SQL |
 | `make test` / `make lint` | тесты / линтер |

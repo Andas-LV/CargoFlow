@@ -56,18 +56,18 @@ HTTP-порты 8081–8085 отдают только `/healthz` и `/readyz`.
 
 ```bash
 cp .env.example .env   # подставь значения из комментариев «локально:» (если .env ещё нет)
-make tools             # проверка buf/docker, сборка go-tools из go.mod
-make infra-up          # Postgres, Redis, NATS, Jaeger
-make migrate-up        # миграции auth, shipment и tracking
-make apps-up           # все 5 сервисов в Docker
+make tools             # проверка buf/docker, сборка go-tools из go.mod (один раз)
+make run-all           # инфраструктура + миграции + все 5 сервисов в этом терминале
 ```
+
+Перед запуском должен работать Docker Desktop. `make run-all` сам поднимает Postgres, Redis, NATS и Jaeger (`make infra-up`) и применяет новые миграции (`make migrate-up`); если они уже запущены и применены, эти шаги занимают пару секунд.
 
 Есть три способа запустить сервисы, отдельный терминал на каждый сервис не нужен:
 
 | Способ | Команда | Когда удобно |
 |---|---|---|
-| Все в Docker | `make apps-up`, логи — `make apps-logs`, остановка — `make infra-down` | просто поднять бэкенд для фронта |
-| Все из исходников в одном терминале | `make run-all` (Ctrl+C останавливает все) | правишь Go-код: перезапуск собирает свежие бинарники |
+| Все в Docker | `make infra-up && make apps-up`, логи — `make apps-logs`, остановка — `make infra-down` | бэкенд в фоне, терминал свободен |
+| Все из исходников в одном терминале | `make run-all` (Ctrl+C останавливает все) | основной способ: сам поднимает инфраструктуру и применяет миграции, при каждом запуске собирает свежие бинарники |
 | Один сервис из исходников | `make run-shipment` | отлаживаешь один сервис, остальные в Docker или в `run-all` |
 
 Если один сервис запущен из исходников, а остальные в Docker, сначала останови его контейнер, иначе порт будет занят: `docker compose -f deploy/docker-compose.yml stop shipment`.
@@ -166,7 +166,7 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 | `make migrate-up` / `migrate-down` / `migrate-status` | миграции goose для auth, shipment и tracking |
 | `make infra-up` / `infra-down` / `infra-reset` | инфраструктура в Docker (`reset` удаляет данные) |
 | `make apps-up` / `make apps-logs` | собрать образы и поднять все сервисы в Docker / смотреть их логи |
-| `make run-all` | все сервисы из исходников в одном терминале |
+| `make run-all` | инфраструктура + миграции + все сервисы из исходников в одном терминале |
 | `make run-<service>` | запустить один сервис из исходников |
 | `make test` / `make test-integration` | unit-тесты / интеграционные на testcontainers (Postgres) |
 | `make lint` | buf lint, go vet, golangci-lint |
