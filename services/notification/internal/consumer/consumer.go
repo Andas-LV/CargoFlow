@@ -46,9 +46,8 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			UserID: ev.GetOwnerId(),
-			Title:  "Shipment created",
-			Text:   fmt.Sprintf("Shipment %s (%s): %s → %s", ev.GetShipmentId(), ev.GetCargoType(), ev.GetOrigin(), ev.GetDestination()),
+			Title: "Shipment created",
+			Text:  fmt.Sprintf("Shipment %s (%s): %s → %s", ev.GetShipmentId(), ev.GetCargoType(), ev.GetOrigin(), ev.GetDestination()),
 		}, nil
 
 	case natsx.SubjectShipmentStatusChanged:
@@ -57,9 +56,8 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			UserID: ev.GetOwnerId(),
-			Title:  "Shipment status changed",
-			Text:   fmt.Sprintf("Shipment %s: %s → %s", ev.GetShipmentId(), ev.GetOldStatus(), ev.GetNewStatus()),
+			Title: "Shipment status changed",
+			Text:  fmt.Sprintf("Shipment %s: %s → %s", ev.GetShipmentId(), ev.GetOldStatus(), ev.GetNewStatus()),
 		}, nil
 
 	case natsx.SubjectPositionUpdated:

@@ -62,7 +62,7 @@ sequenceDiagram
 ## Шаг 4. Подписчики реагируют
 
 - **tracking** ([consumer/consumer.go](../../services/tracking/internal/consumer/consumer.go)) получает `shipment.created` и записывает первую точку маршрута — станцию отправления. Поэтому `GET /v1/shipments/{id}/route` сразу возвращает одну точку.
-- **notification** получает то же событие и «отправляет уведомление» (пока просто пишет в лог `"msg":"notification","title":"Shipment created"`).
+- **notification** получает то же событие и отправляет в Telegram сообщение «Shipment created» (в логе — `"msg":"telegram notification sent"`).
 
 shipment про них ничего не знает — он просто сообщил «заявка создана». Завтра можно добавить сервис аналитики, подписанный на то же событие, не меняя shipment.
 

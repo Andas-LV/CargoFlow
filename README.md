@@ -44,7 +44,7 @@ flowchart LR
 | auth | gRPC 50051, HTTP 8081 | Postgres `auth`, Redis | регистрация, логин, refresh, валидация токена |
 | shipment | gRPC 50052, HTTP 8082 | Postgres `shipment`, Redis | заявки и статусы, outbox → NATS |
 | tracking | gRPC 50053, HTTP 8083 | Postgres `tracking` | точки маршрута, история перемещений |
-| notification | HTTP 8085 | — | слушает NATS, отправляет уведомления (заглушки) |
+| notification | HTTP 8085 | — | слушает NATS, отправляет уведомления в Telegram |
 
 HTTP-порты 8081–8085 отдают только `/healthz` и `/readyz`.
 
@@ -144,7 +144,7 @@ curl -s -X POST localhost:8080/v1/shipments \
 curl -s localhost:8080/v1/shipments/<id>/route -H "Authorization: Bearer $TOKEN"
 ```
 
-После создания заявки в логах notification появится `"msg":"notification","title":"Shipment created"`, а в Jaeger — один трейс: `gateway → shipment → publish shipment.created → process shipment.created` в tracking и notification.
+После создания заявки в Telegram придёт «Shipment created» (если заданы `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`), в логах notification — `"msg":"telegram notification sent"`, а в Jaeger — один трейс: `gateway → shipment → publish shipment.created → process shipment.created` в tracking и notification.
 
 ### Типы для фронта
 

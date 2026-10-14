@@ -1,84 +1,88 @@
-// Package notifier delivers notifications. Telegram and email are stubs that only log
-// what would be sent; replace their Notify bodies with real API calls later.
+// Package notifier delivers notifications to Telegram.
 package notifier
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
+	"fmt"
+	"io"
 	"log/slog"
+	"net/http"
+	"net/url"
+	"time"
 )
 
-// Message is a channel-agnostic notification.
+// Message is a notification to deliver.
 type Message struct {
-	// UserID is the recipient (shipment owner); empty when unknown.
-	UserID string
-	Title  string
-	Text   string
+	Title string
+	Text  string
 }
 
+// Notifier sends a message somewhere. The consumer depends on this interface, so tests or
+// other channels can be plugged in without touching it.
 type Notifier interface {
 	Notify(ctx context.Context, msg Message) error
 }
 
-// Multi fans a message out to several notifiers and joins their errors.
-type Multi []Notifier
-
-func (m Multi) Notify(ctx context.Context, msg Message) error {
-	var errs []error
-	for _, n := range m {
-		if err := n.Notify(ctx, msg); err != nil {
-			errs = append(errs, err)
-		}
-	}
-	return errors.Join(errs...)
-}
-
-// Log writes every notification to the service log. Always enabled, so the event flow is
-// visible locally without any external accounts.
-type Log struct{ log *slog.Logger }
-
-func NewLog(log *slog.Logger) Log { return Log{log: log} }
-
-func (l Log) Notify(ctx context.Context, msg Message) error {
-	l.log.InfoContext(ctx, "notification", "user_id", msg.UserID, "title", msg.Title, "text", msg.Text)
-	return nil
-}
-
-// Telegram is a stub for the Telegram Bot API (sendMessage).
+// Telegram sends notifications via the Telegram Bot API (sendMessage) to one chat.
 type Telegram struct {
 	botToken, chatID string
+	client           *http.Client
 	log              *slog.Logger
 }
 
 func NewTelegram(botToken, chatID string, log *slog.Logger) Telegram {
-	return Telegram{botToken: botToken, chatID: chatID, log: log}
+	return Telegram{
+		botToken: botToken,
+		chatID:   chatID,
+		client:   &http.Client{Timeout: 5 * time.Second}, // never wait for Telegram forever
+		log:      log,
+	}
 }
 
 func (t Telegram) Notify(ctx context.Context, msg Message) error {
 	if t.botToken == "" || t.chatID == "" {
-		return nil // not configured
+		t.log.DebugContext(ctx, "telegram not configured, notification skipped", "title", msg.Title)
+		return nil
 	}
-	// TODO: POST https://api.telegram.org/bot<token>/sendMessage {chat_id, text}.
-	t.log.DebugContext(ctx, "telegram stub: would send", "chat_id", t.chatID, "title", msg.Title)
-	return nil
-}
 
-// Email is a stub for SMTP delivery.
-type Email struct {
-	host string
-	port int
-	log  *slog.Logger
-}
-
-func NewEmail(host string, port int, log *slog.Logger) Email {
-	return Email{host: host, port: port, log: log}
-}
-
-func (e Email) Notify(ctx context.Context, msg Message) error {
-	if e.host == "" {
-		return nil // not configured
+	body, err := json.Marshal(map[string]string{
+		"chat_id": t.chatID,
+		"text":    msg.Title + "\n" + msg.Text,
+	})
+	if err != nil {
+		return err
 	}
-	// TODO: look up the user's email and send via net/smtp.
-	e.log.DebugContext(ctx, "email stub: would send", "smtp_host", e.host, "title", msg.Title)
+
+	endpoint := "https://api.telegram.org/bot" + t.botToken + "/sendMessage"
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return errors.New("telegram: build request") // the URL contains the token: never put it in an error
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	resp, err := t.client.Do(req)
+	if err != nil {
+		// *url.Error prints the full URL, i.e. the bot token. Keep only the cause.
+		var uerr *url.Error
+		if errors.As(err, &uerr) {
+			err = uerr.Err
+		}
+		return fmt.Errorf("telegram: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		// Telegram explains failures in the body: {"ok":false,"description":"Bad Request: chat not found"}.
+		var apiErr struct {
+			Description string `json:"description"`
+		}
+		_ = json.NewDecoder(io.LimitReader(resp.Body, 4096)).Decode(&apiErr)
+		return fmt.Errorf("telegram: status %d: %s", resp.StatusCode, apiErr.Description)
+	}
+
+	t.log.InfoContext(ctx, "telegram notification sent", "title", msg.Title)
 	return nil
 }

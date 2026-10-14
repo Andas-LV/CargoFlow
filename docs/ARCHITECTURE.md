@@ -125,7 +125,7 @@ sqlc читает те же файлы миграций как схему, по�
 
 ## Что намеренно упрощено
 
-- Уведомления — заглушки: пишут в лог; Telegram и email только логируют, что было бы отправлено (`services/notification/internal/notifier`).
+- Уведомления уходят только в Telegram и в один чат (`TELEGRAM_CHAT_ID`), а не владельцу заявки (`services/notification/internal/notifier`). Если токен не задан, уведомления пропускаются.
 - Нет outbox в tracking (см. выше).
 - Кеш shipment — простой read-through с инвалидацией при смене статуса; списки не кешируются.
 - Rate limit — fixed window на IP; при недоступном Redis запросы пропускаются.

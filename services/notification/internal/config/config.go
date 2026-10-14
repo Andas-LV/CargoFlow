@@ -16,7 +16,6 @@ type Config struct {
 	HTTPAddr string `env:"NOTIFICATION_HTTP_ADDR" envDefault:":8085"`
 
 	Telegram Telegram
-	SMTP     SMTP
 
 	NATS natsx.Config
 	OTel otelx.Config
@@ -25,13 +24,6 @@ type Config struct {
 type Telegram struct {
 	BotToken string `env:"TELEGRAM_BOT_TOKEN"`
 	ChatID   string `env:"TELEGRAM_CHAT_ID"`
-}
-
-type SMTP struct {
-	Host     string `env:"SMTP_HOST"`
-	Port     int    `env:"SMTP_PORT" envDefault:"587"`
-	User     string `env:"SMTP_USER"`
-	Password string `env:"SMTP_PASSWORD"`
 }
 
 // Load reads .env if present (local runs only; in production it is absent) and parses env.

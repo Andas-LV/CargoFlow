@@ -52,11 +52,7 @@ func run() error {
 		return err
 	}
 
-	n := notifier.Multi{
-		notifier.NewLog(log),
-		notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, log),
-		notifier.NewEmail(cfg.SMTP.Host, cfg.SMTP.Port, log),
-	}
+	n := notifier.NewTelegram(cfg.Telegram.BotToken, cfg.Telegram.ChatID, log)
 	cons, err := consumer.Start(ctx, nc, n, log)
 	if err != nil {
 		return err

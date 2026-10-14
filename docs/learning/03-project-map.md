@@ -92,7 +92,7 @@ services/shipment/
 | **auth** | `service/tokens.go` — выпуск и проверка JWT; `repository/sessions.go` — refresh-сессии в Redis |
 | **shipment** | `internal/events` — outbox; `repository/cache.go` — кеш в Redis |
 | **tracking** | `internal/consumer` — слушает события из NATS; `service/shipments.go` — gRPC-клиент к shipment |
-| **notification** | только `consumer` + `notifier` (заглушки Telegram/email), из HTTP — лишь `/healthz` |
+| **notification** | только `consumer` + `notifier` (отправка в Telegram), из HTTP — лишь `/healthz` |
 
 ## pkg/ — общий код
 
