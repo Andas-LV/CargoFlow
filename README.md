@@ -17,12 +17,13 @@ flowchart LR
         AUTH["auth<br/>gRPC :50051"]
         SHIP["shipment<br/>gRPC :50052"]
         TRACK["tracking<br/>gRPC :50053"]
-        NOTIF["notification<br/>:8085"]
+        NOTIF["notification<br/>gRPC :50054"]
     end
 
     GW -- gRPC --> AUTH
     GW -- gRPC --> SHIP
     GW -- gRPC --> TRACK
+    GW -- gRPC --> NOTIF
     TRACK -- "gRPC: проверка владельца" --> SHIP
 
     AUTH --- PGA[("Postgres<br/>auth")]
@@ -31,11 +32,14 @@ flowchart LR
     SHIP --- RDS
     GW --- RDS
     TRACK --- PGT[("Postgres<br/>tracking")]
+    NOTIF --- PGN[("Postgres<br/>notification")]
+    NOTIF --- RDS
 
     SHIP -- "outbox → shipment.*" --> NATS{{"NATS JetStream<br/>stream CARGO"}}
     TRACK -- "tracking.position_updated" --> NATS
     NATS -- "shipment.created" --> TRACK
     NATS -- "shipment.>, tracking.>" --> NOTIF
+    NOTIF -- "Bot API" --> TG(["Telegram"])
 ```
 
 | Сервис | Порт локально | Хранилище | Ответственность |
@@ -44,9 +48,9 @@ flowchart LR
 | auth | gRPC 50051, HTTP 8081 | Postgres `auth`, Redis | регистрация, логин, refresh, валидация токена |
 | shipment | gRPC 50052, HTTP 8082 | Postgres `shipment`, Redis | заявки и статусы, outbox → NATS |
 | tracking | gRPC 50053, HTTP 8083 | Postgres `tracking` | точки маршрута, история перемещений |
-| notification | HTTP 8085 | — | слушает NATS, отправляет уведомления в Telegram |
+| notification | gRPC 50054, HTTP 8085 | Postgres `notification`, Redis | привязка Telegram пользователя, Telegram-бот, уведомления владельцу заявки |
 
-HTTP-порты 8081–8085 отдают только `/healthz` и `/readyz`.
+HTTP-порты 8081–8085 отдают только `/healthz` и `/readyz`, всё остальное — через gRPC-порты и gateway.
 
 Подробности — в [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md), библиотеки и примеры кода — в [docs/LIBRARIES.md](docs/LIBRARIES.md).
 
@@ -72,7 +76,7 @@ make run-all           # инфраструктура + миграции + вс�
 
 Если один сервис запущен из исходников, а остальные в Docker, сначала останови его контейнер, иначе порт будет занят: `docker compose -f deploy/docker-compose.yml stop shipment`.
 
-Проверка: `curl localhost:8080/readyz` → `{"auth":"ok","redis":"ok","shipment":"ok","tracking":"ok"}`.
+Проверка: `curl localhost:8080/readyz` → `{"auth":"ok","notification":"ok","redis":"ok","shipment":"ok","tracking":"ok"}`.
 
 | Что | Адрес |
 |---|---|
@@ -99,6 +103,9 @@ Postgres проброшен на **5434**, потому что 5432 часто �
 | PATCH | `/v1/shipments/{id}/status` | ✓ | смена статуса: `CREATED → IN_TRANSIT → DELIVERED`, отмена из первых двух |
 | POST | `/v1/shipments/{shipmentId}/positions` | ✓ | отметить прохождение станции (`station`, `lat`, `lon`) |
 | GET | `/v1/shipments/{shipmentId}/route` | ✓ | история маршрута |
+| POST | `/v1/notifications/telegram/link` | ✓ | одноразовая ссылка `t.me/<бот>?start=<код>` (живёт 10 минут) для подключения Telegram |
+| GET | `/v1/notifications/telegram` | ✓ | подключён ли Telegram (`linked`, `linkedAt`) |
+| DELETE | `/v1/notifications/telegram` | ✓ | отключить уведомления в Telegram |
 | GET | `/openapi.json` | — | OpenAPI-спецификация (Swagger 2.0) |
 | GET | `/healthz`, `/readyz` | — | liveness и readiness |
 
@@ -118,7 +125,7 @@ Postgres проброшен на **5434**, потому что 5432 часто �
 | 16 `UNAUTHENTICATED` | 401 | нет токена, токен истёк, неверный пароль |
 | 5 `NOT_FOUND` | 404 | нет заявки (или она чужая) |
 | 6 `ALREADY_EXISTS` | 409 | email уже зарегистрирован |
-| 9 `FAILED_PRECONDITION` | 400 | недопустимый переход статуса |
+| 9 `FAILED_PRECONDITION` | 400 | недопустимый переход статуса; Telegram-бот не настроен |
 | 8 `RESOURCE_EXHAUSTED` | 429 | превышен rate limit |
 | 14 `UNAVAILABLE` | 503 | недоступен внутренний сервис |
 
@@ -144,7 +151,17 @@ curl -s -X POST localhost:8080/v1/shipments \
 curl -s localhost:8080/v1/shipments/<id>/route -H "Authorization: Bearer $TOKEN"
 ```
 
-После создания заявки в Telegram придёт «Shipment created» (если заданы `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID`), в логах notification — `"msg":"telegram notification sent"`, а в Jaeger — один трейс: `gateway → shipment → publish shipment.created → process shipment.created` в tracking и notification.
+Если владелец заявки подключил Telegram (см. ниже), ему придёт уведомление, в логах notification — `"msg":"telegram notification sent"`, а в Jaeger — один трейс: `gateway → shipment → publish shipment.created → process shipment.created` в tracking и notification.
+
+### Уведомления в Telegram
+
+Каждый пользователь подключает свой Telegram сам, уведомления приходят только владельцу заявки:
+
+1. Фронт: `POST /v1/notifications/telegram/link` → `{"url": "https://t.me/<бот>?start=<код>", "expiresAt": ...}`.
+2. Пользователь открывает ссылку и нажимает **Start**. Бот отвечает «Уведомления CargoFlow подключены ✅».
+3. Дальше события его заявок (создание, смена статуса, новая станция) приходят ему в Telegram. `/stop` в боте отключает уведомления.
+
+Нужен только `TELEGRAM_BOT_TOKEN` (от @BotFather). Бот получает сообщения через long polling, поэтому всё работает и локально, без публичного адреса.
 
 ### Типы для фронта
 
@@ -163,8 +180,8 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 |---|---|
 | `make proto` | `buf lint` + генерация Go-кода, gRPC, gateway и OpenAPI в `gen/` |
 | `make sqlc` | генерация типобезопасного кода из `services/*/queries/*.sql` |
-| `make migrate-up` / `migrate-down` / `migrate-status` | миграции goose для auth, shipment и tracking |
-| `make infra-up` / `infra-down` / `infra-reset` | инфраструктура в Docker (`reset` удаляет данные) |
+| `make migrate-up` / `migrate-down` / `migrate-status` | миграции goose для auth, shipment, tracking и notification |
+| `make infra-up` / `infra-down` / `infra-reset` | инфраструктура в Docker, недостающие базы создаются сами (`reset` удаляет данные) |
 | `make apps-up` / `make apps-logs` | собрать образы и поднять все сервисы в Docker / смотреть их логи |
 | `make run-all` | инфраструктура + миграции + все сервисы из исходников в одном терминале |
 | `make run-<service>` | запустить один сервис из исходников |
@@ -181,7 +198,7 @@ CORS разрешён для origin из `CORS_ALLOWED_ORIGINS` (по умолч
 | Компонент | Где |
 |---|---|
 | Go-сервисы | Render, Docker, Blueprint [deploy/render.yaml](deploy/render.yaml) |
-| Postgres | Neon (отдельная БД на сервис: `auth`, `shipment`, `tracking`) |
+| Postgres | Neon (отдельная БД на сервис: `auth`, `shipment`, `tracking`, `notification`) |
 | Redis | Upstash / Render Key Value |
 | NATS | Synadia Cloud (free) |
 | Трейсы | OTLP-коллектор (см. [ARCHITECTURE.md](docs/ARCHITECTURE.md#трейсинг)) |

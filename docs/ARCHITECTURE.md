@@ -6,11 +6,11 @@
 
 | Сервис | Владеет данными | Синхронно вызывает | Публикует | Подписан на |
 |---|---|---|---|---|
-| gateway | счётчики rate limit (Redis `rl:*`) | auth, shipment, tracking | — | — |
+| gateway | счётчики rate limit (Redis `rl:*`) | auth, shipment, tracking, notification | — | — |
 | auth | `users` (Postgres `auth`), refresh-сессии (Redis `refresh:*`) | — | — | — |
 | shipment | `shipments`, `outbox` (Postgres `shipment`), кеш (Redis `shipment:*`) | — | `shipment.created`, `shipment.status_changed` | — |
 | tracking | `positions` (Postgres `tracking`) | shipment (`GetShipment`) | `tracking.position_updated` | `shipment.created` |
-| notification | — | — | — | `shipment.>`, `tracking.>` |
+| notification | `telegram_links` (Postgres `notification`), одноразовые коды привязки (Redis `tglink:*`) | Telegram Bot API | — | `shipment.>`, `tracking.>` |
 
 Правила:
 
@@ -72,6 +72,26 @@ Stream `CARGO`, subjects `shipment.>` и `tracking.>`, file storage, хране�
 
 tracking публикует `tracking.position_updated` напрямую после вставки в Postgres, чтобы пример остался коротким: при недоступном NATS событие потеряется. Для продакшна там нужен такой же outbox, как в shipment.
 
+## Уведомления в Telegram
+
+Уведомление получает **владелец заявки**: `owner_id` есть во всех событиях (`ShipmentCreated`, `ShipmentStatusChanged`, `PositionUpdated`).
+
+Привязка пользователя к чату (deep link):
+
+```
+фронт ── POST /v1/notifications/telegram/link ──▶ gateway ──gRPC──▶ notification
+        код = 16 случайных символов, Redis tglink:<код> → user_id, TTL 10 мин
+        ◀── https://t.me/<бот>?start=<код>
+
+пользователь открывает ссылку, жмёт Start ──▶ Telegram ──▶ бот получает "/start <код>" (getUpdates)
+        GETDEL tglink:<код> → user_id; INSERT telegram_links (user_id, chat_id) → «подключено ✅»
+```
+
+- Бот читает сообщения через **long polling** (`getUpdates`), а не webhook: публичный адрес не нужен, работает и локально. Опрашивать бота может только **один** экземпляр notification, второй получит 409 Conflict.
+- Код одноразовый (`GETDEL`) и живёт 10 минут: перехваченная ссылка быстро становится бесполезной.
+- `/stop` в боте удаляет привязку чата. Если пользователь заблокировал бота, Telegram отвечает 403: сообщение отбрасывается, без бесконечных повторов.
+- Нет привязки — уведомление просто пропускается. Сетевая ошибка или недоступность Telegram — событие не подтверждается, NATS доставит его снова.
+
 ## Трейсинг
 
 `pkg/otelx.Init` настраивает глобальный `TracerProvider` с экспортом по OTLP/gRPC и propagator W3C TraceContext + Baggage. Если `OTEL_EXPORTER_OTLP_ENDPOINT` пустой, ставится только propagator: трейсы не отправляются, но контекст между сервисами продолжает передаваться.
@@ -125,7 +145,7 @@ sqlc читает те же файлы миграций как схему, по�
 
 ## Что намеренно упрощено
 
-- Уведомления уходят только в Telegram и в один чат (`TELEGRAM_CHAT_ID`), а не владельцу заявки (`services/notification/internal/notifier`). Если токен не задан, уведомления пропускаются.
+- Уведомления — только Telegram. Если повторная доставка события из NATS придёт после успешной отправки, пользователь получит дубль: обработанные события не запоминаются.
 - Нет outbox в tracking (см. выше).
 - Кеш shipment — простой read-through с инвалидацией при смене статуса; списки не кешируются.
 - Rate limit — fixed window на IP; при недоступном Redis запросы пропускаются.

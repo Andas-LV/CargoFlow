@@ -112,7 +112,7 @@ func (q *Queries) GetShipment(ctx context.Context, id uuid.UUID) (Shipment, erro
 - `/healthz` — «процесс жив», всегда 200;
 - `/readyz` — «готов работать»: проверяет базу, Redis, NATS. Например, `curl localhost:8080/readyz` → `{"auth":"ok","redis":"ok",...}`. Если что-то упало — 503 и видно, что именно.
 
-Порты: gateway 8080, auth 8081, shipment 8082, tracking 8083, notification 8085.
+Порты: gateway 8080, auth 8081, shipment 8082, tracking 8083, notification 8085 (у notification ещё gRPC 50054).
 
 ## Трейсинг (OpenTelemetry + Jaeger)
 

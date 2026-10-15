@@ -36,6 +36,7 @@ jobs:
           go tool sqlc generate -f services/auth/sqlc.yaml
           go tool sqlc generate -f services/shipment/sqlc.yaml
           go tool sqlc generate -f services/tracking/sqlc.yaml
+          go tool sqlc generate -f services/notification/sqlc.yaml
           # git status also catches new generated files that were never committed.
           if [ -n "$(git status --porcelain -- gen services)" ]; then
             git status --porcelain -- gen services

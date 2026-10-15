@@ -7,7 +7,7 @@
 #   auth          pserv  gRPC :50051, private network only
 #   shipment      pserv  gRPC :50052, private network only
 #   tracking      pserv  gRPC :50053, private network only
-#   notification  web    NATS consumer + /healthz
+#   notification  pserv  gRPC :50054 (Telegram linking), NATS consumer, Telegram bot polling
 #
 # Plans: private services (pserv) have no free plan, the smallest is 0.5c-512mb (Starter).
 # Free web services cannot receive private-network traffic, so the gRPC services cannot be
@@ -15,11 +15,11 @@
 # paid instance later; the code already supports separate addresses per service.
 #
 # Free web services sleep after ~15 minutes without inbound HTTP traffic. For gateway that
-# only means a cold start; for notification it also pauses the NATS consumer (durable
-# consumers keep the messages, they are processed after wake-up).
+# only means a cold start. notification must not sleep (it polls the Telegram bot and
+# consumes NATS) and is called by the gateway, so it is a private service too.
 #
 # External managed services (fill in the Dashboard; values are prompted on first sync):
-#   Postgres → Neon (one database per service: auth, shipment, tracking), Redis → Upstash or Render
+#   Postgres → Neon (one database per service: auth, shipment, tracking, notification), Redis → Upstash or Render
 #   Key Value, NATS → Synadia Cloud (upload the .creds file as a Secret File named
 #   nats.creds, it is mounted at /etc/secrets/nats.creds), traces → OTLP/gRPC collector.
 
@@ -53,6 +53,8 @@ envVarGroups:
         value: cargoflow-shipment:50052
       - key: TRACKING_GRPC_ADDR
         value: cargoflow-tracking:50053
+      - key: NOTIFICATION_GRPC_ADDR
+        value: cargoflow-notification:50054
 
 services:
   - type: web
@@ -134,22 +136,20 @@ services:
       - key: TRACKING_DATABASE_URL
         sync: false # Neon: postgres://...neon.tech/tracking?sslmode=require
 
-  - type: web
+  # Exactly one instance: Telegram allows only one getUpdates poller per bot.
+  - type: pserv
     name: cargoflow-notification
     runtime: docker
-    plan: free
+    plan: 0.5c-512mb
     region: frankfurt
     dockerContext: .
     dockerfilePath: ./services/notification/Dockerfile
-    healthCheckPath: /healthz
     autoDeployTrigger: checksPass
     envVars:
       - fromGroup: cargoflow-shared
-      - key: PORT
-        value: "10000"
       - key: NOTIFICATION_HTTP_ADDR
-        value: ":10000"
+        value: ":8085"
+      - key: NOTIFICATION_DATABASE_URL
+        sync: false # Neon: postgres://...neon.tech/notification?sslmode=require
       - key: TELEGRAM_BOT_TOKEN
-        sync: false
-      - key: TELEGRAM_CHAT_ID
         sync: false

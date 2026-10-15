@@ -93,6 +93,7 @@ func (s *Service) AddPosition(ctx context.Context, in AddPositionInput) (Positio
 		Lat:        p.Lat,
 		Lon:        p.Lon,
 		OccurredAt: timestamppb.New(p.RecordedAt),
+		OwnerId: in.UserID,
 	}
 	if err := s.events.Publish(ctx, natsx.SubjectPositionUpdated, ev.GetEventId(), ev); err != nil {
 		s.log.ErrorContext(ctx, "publish position_updated", "err", err, "position_id", p.ID)

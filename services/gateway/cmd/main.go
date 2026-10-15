@@ -63,6 +63,10 @@ func run() error {
 		return err
 	}
 	defer func() { _ = backends.Tracking.Close() }()
+	if backends.Notification, err = grpcx.NewClient(cfg.NotificationGRPCAddr); err != nil {
+		return err
+	}
+	defer func() { _ = backends.Notification.Close() }()
 
 	srv, err := server.New(ctx, cfg, backends, rdb, log)
 	if err != nil {

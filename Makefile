@@ -1,6 +1,7 @@
 # CargoFlow — developer commands. Recipes use POSIX sh (Git Bash on Windows).
 
 SERVICES := gateway auth shipment tracking notification
+DATABASES := auth shipment tracking notification
 COMPOSE  := docker compose -f deploy/docker-compose.yml
 EXE      := $(if $(filter Windows_NT,$(OS)),.exe,)
 # The Ryuk reaper container fails to start on Docker Desktop for Windows; tests clean up
@@ -33,37 +34,46 @@ proto: ## Lint proto files and generate Go code + OpenAPI spec
 	cd proto && buf lint && buf generate
 
 .PHONY: sqlc
-sqlc: ## Generate type-safe DB code for auth, shipment and tracking
+sqlc: ## Generate type-safe DB code for all services with a database
 	go tool sqlc generate -f services/auth/sqlc.yaml
 	go tool sqlc generate -f services/shipment/sqlc.yaml
 	go tool sqlc generate -f services/tracking/sqlc.yaml
+	go tool sqlc generate -f services/notification/sqlc.yaml
 
 .PHONY: generate
 generate: proto sqlc ## Run all code generators
 
 # ---------- database migrations ----------
 .PHONY: migrate-up
-migrate-up: ## Apply migrations for auth, shipment and tracking
+migrate-up: ## Apply migrations for all services
 	go tool goose -dir services/auth/migrations postgres "$(AUTH_DATABASE_URL)" up
 	go tool goose -dir services/shipment/migrations postgres "$(SHIPMENT_DATABASE_URL)" up
 	go tool goose -dir services/tracking/migrations postgres "$(TRACKING_DATABASE_URL)" up
+	go tool goose -dir services/notification/migrations postgres "$(NOTIFICATION_DATABASE_URL)" up
 
 .PHONY: migrate-down
-migrate-down: ## Roll back the last migration of auth, shipment and tracking
+migrate-down: ## Roll back the last migration of all services
 	go tool goose -dir services/auth/migrations postgres "$(AUTH_DATABASE_URL)" down
 	go tool goose -dir services/shipment/migrations postgres "$(SHIPMENT_DATABASE_URL)" down
 	go tool goose -dir services/tracking/migrations postgres "$(TRACKING_DATABASE_URL)" down
+	go tool goose -dir services/notification/migrations postgres "$(NOTIFICATION_DATABASE_URL)" down
 
 .PHONY: migrate-status
 migrate-status: ## Show migration status
 	go tool goose -dir services/auth/migrations postgres "$(AUTH_DATABASE_URL)" status
 	go tool goose -dir services/shipment/migrations postgres "$(SHIPMENT_DATABASE_URL)" status
 	go tool goose -dir services/tracking/migrations postgres "$(TRACKING_DATABASE_URL)" status
+	go tool goose -dir services/notification/migrations postgres "$(NOTIFICATION_DATABASE_URL)" status
 
 # ---------- local infrastructure ----------
 .PHONY: infra-up
 infra-up: ## Start Postgres, Redis, NATS, Jaeger and wait until healthy
 	$(COMPOSE) up -d --wait
+	@# init.sql runs only on an empty volume: create databases that were added later.
+	@for db in $(DATABASES); do \
+		$(COMPOSE) exec -T postgres psql -U cargo -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='$$db'" | grep -q 1 \
+			|| $(COMPOSE) exec -T postgres createdb -U cargo $$db; \
+	done
 
 .PHONY: infra-down
 infra-down: ## Stop infrastructure (data volumes are kept)

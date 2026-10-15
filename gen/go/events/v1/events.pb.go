@@ -208,13 +208,15 @@ func (x *ShipmentStatusChanged) GetOccurredAt() *timestamppb.Timestamp {
 
 // Subject: tracking.position_updated. Publisher: tracking.
 type PositionUpdated struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	EventId       string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
-	ShipmentId    string                 `protobuf:"bytes,2,opt,name=shipment_id,json=shipmentId,proto3" json:"shipment_id,omitempty"`
-	Station       string                 `protobuf:"bytes,3,opt,name=station,proto3" json:"station,omitempty"`
-	Lat           float64                `protobuf:"fixed64,4,opt,name=lat,proto3" json:"lat,omitempty"`
-	Lon           float64                `protobuf:"fixed64,5,opt,name=lon,proto3" json:"lon,omitempty"`
-	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	state      protoimpl.MessageState `protogen:"open.v1"`
+	EventId    string                 `protobuf:"bytes,1,opt,name=event_id,json=eventId,proto3" json:"event_id,omitempty"`
+	ShipmentId string                 `protobuf:"bytes,2,opt,name=shipment_id,json=shipmentId,proto3" json:"shipment_id,omitempty"`
+	Station    string                 `protobuf:"bytes,3,opt,name=station,proto3" json:"station,omitempty"`
+	Lat        float64                `protobuf:"fixed64,4,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lon        float64                `protobuf:"fixed64,5,opt,name=lon,proto3" json:"lon,omitempty"`
+	OccurredAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	// Owner of the shipment: the user who recorded the position.
+	OwnerId       string `protobuf:"bytes,7,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -291,6 +293,13 @@ func (x *PositionUpdated) GetOccurredAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *PositionUpdated) GetOwnerId() string {
+	if x != nil {
+		return x.OwnerId
+	}
+	return ""
+}
+
 var File_events_v1_events_proto protoreflect.FileDescriptor
 
 const file_events_v1_events_proto_rawDesc = "" +
@@ -317,7 +326,7 @@ const file_events_v1_events_proto_rawDesc = "" +
 	"\n" +
 	"new_status\x18\x05 \x01(\tR\tnewStatus\x12;\n" +
 	"\voccurred_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt\"\xc8\x01\n" +
+	"occurredAt\"\xe3\x01\n" +
 	"\x0fPositionUpdated\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1f\n" +
 	"\vshipment_id\x18\x02 \x01(\tR\n" +
@@ -326,7 +335,8 @@ const file_events_v1_events_proto_rawDesc = "" +
 	"\x03lat\x18\x04 \x01(\x01R\x03lat\x12\x10\n" +
 	"\x03lon\x18\x05 \x01(\x01R\x03lon\x12;\n" +
 	"\voccurred_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAtB9Z7github.com/Andas-LV/cargoflow/gen/go/events/v1;eventsv1b\x06proto3"
+	"occurredAt\x12\x19\n" +
+	"\bowner_id\x18\a \x01(\tR\aownerIdB9Z7github.com/Andas-LV/cargoflow/gen/go/events/v1;eventsv1b\x06proto3"
 
 var (
 	file_events_v1_events_proto_rawDescOnce sync.Once

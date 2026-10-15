@@ -11,13 +11,14 @@ import (
 
 	eventsv1 "github.com/Andas-LV/cargoflow/gen/go/events/v1"
 	"github.com/Andas-LV/cargoflow/pkg/natsx"
-	"github.com/Andas-LV/cargoflow/services/notification/internal/notifier"
 	"github.com/Andas-LV/cargoflow/services/notification/internal/locale"
+	"github.com/Andas-LV/cargoflow/services/notification/internal/notifier"
 )
 
 const durableName = "notification"
 
 // Start consumes all shipment.* and tracking.* events with the durable consumer "notification".
+// Every event becomes a message for the shipment owner.
 func Start(ctx context.Context, nc *natsx.Conn, n notifier.Notifier, log *slog.Logger) (*natsx.Consumer, error) {
 	handler := func(ctx context.Context, m jetstream.Msg) error {
 		msg, err := toMessage(m.Subject(), m.Data())
@@ -47,7 +48,8 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			Title: "Заявка создана",
+			UserID: ev.GetOwnerId(),
+			Title:  "Заявка создана",
 			Text: fmt.Sprintf("Заявка %s (%s): %s → %s",
 				ev.GetShipmentId(), locale.CargoType(ev.GetCargoType()), ev.GetOrigin(), ev.GetDestination()),
 		}, nil
@@ -58,7 +60,8 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			Title: "Статус вагона изменен",
+			UserID: ev.GetOwnerId(),
+			Title:  "Статус вагона изменен",
 			Text: fmt.Sprintf("Заявка %s: %s → %s",
 				ev.GetShipmentId(), locale.Status(ev.GetOldStatus()), locale.Status(ev.GetNewStatus())),
 		}, nil
@@ -69,8 +72,9 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			Title: "Вагон перемещен",
-			Text:  fmt.Sprintf("Заявка %s: %s", ev.GetShipmentId(), locale.Status(ev.GetStation())),
+			UserID: ev.GetOwnerId(),
+			Title:  "Вагон перемещен",
+			Text:   fmt.Sprintf("Заявка %s: %s", ev.GetShipmentId(), ev.GetStation()),
 		}, nil
 
 	default:

@@ -40,4 +40,6 @@ message PositionUpdated {
   double lat = 4;
   double lon = 5;
   google.protobuf.Timestamp occurred_at = 6;
+  // Owner of the shipment: the user who recorded the position.
+  string owner_id = 7;
 }

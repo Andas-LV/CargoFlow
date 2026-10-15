@@ -3,3 +3,4 @@
 CREATE DATABASE auth;
 CREATE DATABASE shipment;
 CREATE DATABASE tracking;
+CREATE DATABASE notification;

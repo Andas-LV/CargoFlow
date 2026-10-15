@@ -19,6 +19,7 @@ import (
 	"google.golang.org/protobuf/encoding/protojson"
 
 	authv1 "github.com/Andas-LV/cargoflow/gen/go/auth/v1"
+	notificationv1 "github.com/Andas-LV/cargoflow/gen/go/notification/v1"
 	shipmentv1 "github.com/Andas-LV/cargoflow/gen/go/shipment/v1"
 	trackingv1 "github.com/Andas-LV/cargoflow/gen/go/tracking/v1"
 	"github.com/Andas-LV/cargoflow/gen/openapi"
@@ -31,7 +32,7 @@ import (
 
 // Backends are client connections to the internal gRPC services.
 type Backends struct {
-	Auth, Shipment, Tracking *grpc.ClientConn
+	Auth, Shipment, Tracking, Notification *grpc.ClientConn
 }
 
 // New builds the gateway's HTTP server.
@@ -60,6 +61,9 @@ func New(ctx context.Context, cfg config.Config, b Backends, rdb *redis.Client, 
 	if err := trackingv1.RegisterTrackingServiceHandler(ctx, gw, b.Tracking); err != nil {
 		return nil, fmt.Errorf("register tracking routes: %w", err)
 	}
+	if err := notificationv1.RegisterNotificationServiceHandler(ctx, gw, b.Notification); err != nil {
+		return nil, fmt.Errorf("register notification routes: %w", err)
+	}
 
 	authClient := authv1.NewAuthServiceClient(b.Auth)
 	api := chain(gw,
@@ -69,10 +73,11 @@ func New(ctx context.Context, cfg config.Config, b Backends, rdb *redis.Client, 
 
 	root := http.NewServeMux()
 	health.Register(root, health.Checks{
-		"redis":    redisx.Check(rdb),
-		"auth":     grpcx.HealthCheck(b.Auth),
-		"shipment": grpcx.HealthCheck(b.Shipment),
-		"tracking": grpcx.HealthCheck(b.Tracking),
+		"redis":        redisx.Check(rdb),
+		"auth":         grpcx.HealthCheck(b.Auth),
+		"shipment":     grpcx.HealthCheck(b.Shipment),
+		"tracking":     grpcx.HealthCheck(b.Tracking),
+		"notification": grpcx.HealthCheck(b.Notification),
 	})
 	root.HandleFunc("GET /openapi.json", func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "application/json")

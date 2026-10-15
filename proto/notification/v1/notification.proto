@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package notification.v1;
+
+import "google/api/annotations.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/Andas-LV/cargoflow/gen/go/notification/v1;notificationv1";
+
+// NotificationService manages where a user receives notifications.
+// All methods act on the authenticated user (`x-user-id` metadata set by the gateway).
+service NotificationService {
+  // CreateTelegramLink returns a one-time t.me deep link. Opening it and pressing "Start"
+  // connects the user's Telegram chat to their CargoFlow account.
+  rpc CreateTelegramLink(CreateTelegramLinkRequest) returns (CreateTelegramLinkResponse) {
+    option (google.api.http) = {
+      post: "/v1/notifications/telegram/link"
+      body: "*"
+    };
+  }
+
+  // GetTelegramStatus tells whether the user's Telegram is connected.
+  rpc GetTelegramStatus(GetTelegramStatusRequest) returns (GetTelegramStatusResponse) {
+    option (google.api.http) = {get: "/v1/notifications/telegram"};
+  }
+
+  // UnlinkTelegram stops Telegram notifications for the user.
+  rpc UnlinkTelegram(UnlinkTelegramRequest) returns (UnlinkTelegramResponse) {
+    option (google.api.http) = {delete: "/v1/notifications/telegram"};
+  }
+}
+
+message CreateTelegramLinkRequest {}
+
+message CreateTelegramLinkResponse {
+  // e.g. https://t.me/cargoflow_bot?start=K7x9QpLm2aBc
+  string url = 1;
+  google.protobuf.Timestamp expires_at = 2;
+}
+
+message GetTelegramStatusRequest {}
+
+message GetTelegramStatusResponse {
+  bool linked = 1;
+  // Set only when linked.
+  google.protobuf.Timestamp linked_at = 2;
+}
+
+message UnlinkTelegramRequest {}
+
+message UnlinkTelegramResponse {}

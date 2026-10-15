@@ -12,9 +12,11 @@ x-app-env: &app-env
   AUTH_GRPC_ADDR: auth:50051
   SHIPMENT_GRPC_ADDR: shipment:50052
   TRACKING_GRPC_ADDR: tracking:50053
+  NOTIFICATION_GRPC_ADDR: notification:50054
   AUTH_DATABASE_URL: postgres://cargo:cargo@postgres:5432/auth?sslmode=disable
   SHIPMENT_DATABASE_URL: postgres://cargo:cargo@postgres:5432/shipment?sslmode=disable
   TRACKING_DATABASE_URL: postgres://cargo:cargo@postgres:5432/tracking?sslmode=disable
+  NOTIFICATION_DATABASE_URL: postgres://cargo:cargo@postgres:5432/notification?sslmode=disable
   REDIS_URL: redis://redis:6379/0
   NATS_URL: nats://nats:4222
   OTEL_EXPORTER_OTLP_ENDPOINT: jaeger:4317
@@ -43,7 +45,7 @@ services:
       - postgres-data:/var/lib/postgresql/data
       - ./postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cargo -d tracking"]
+      test: ["CMD-SHELL", "pg_isready -U cargo -d notification"]
       interval: 5s
       timeout: 3s
       retries: 20
@@ -106,8 +108,10 @@ services:
   notification:
     <<: *app
     build: { context: .., dockerfile: services/notification/Dockerfile }
-    ports: ["8085:8085"]
+    ports: ["50054:50054", "8085:8085"]
     depends_on:
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
       nats: { condition: service_healthy }
 
   gateway:
@@ -119,6 +123,7 @@ services:
       auth: { condition: service_started }
       shipment: { condition: service_started }
       tracking: { condition: service_started }
+      notification: { condition: service_started }
 
 volumes:
   postgres-data:

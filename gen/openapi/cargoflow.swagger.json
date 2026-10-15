@@ -10,6 +10,10 @@
       "description": "AuthService issues and validates JWT tokens."
     },
     {
+      "name": "NotificationService",
+      "description": "NotificationService manages where a user receives notifications.\nAll methods act on the authenticated user (`x-user-id` metadata set by the gateway)."
+    },
+    {
       "name": "ShipmentService",
       "description": "ShipmentService manages transportation requests (shipments).\nAll methods require an authenticated user; the gateway passes it as `x-user-id` metadata."
     },
@@ -125,6 +129,83 @@
           "AuthService"
         ],
         "security": []
+      }
+    },
+    "/v1/notifications/telegram": {
+      "get": {
+        "summary": "GetTelegramStatus tells whether the user's Telegram is connected.",
+        "operationId": "NotificationService_GetTelegramStatus",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetTelegramStatusResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "NotificationService"
+        ]
+      },
+      "delete": {
+        "summary": "UnlinkTelegram stops Telegram notifications for the user.",
+        "operationId": "NotificationService_UnlinkTelegram",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/UnlinkTelegramResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "tags": [
+          "NotificationService"
+        ]
+      }
+    },
+    "/v1/notifications/telegram/link": {
+      "post": {
+        "summary": "CreateTelegramLink returns a one-time t.me deep link. Opening it and pressing \"Start\"\nconnects the user's Telegram chat to their CargoFlow account.",
+        "operationId": "NotificationService_CreateTelegramLink",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/CreateTelegramLinkResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "body",
+            "in": "body",
+            "required": true,
+            "schema": {
+              "$ref": "#/definitions/CreateTelegramLinkRequest"
+            }
+          }
+        ],
+        "tags": [
+          "NotificationService"
+        ]
       }
     },
     "/v1/shipments": {
@@ -402,6 +483,22 @@
         }
       }
     },
+    "CreateTelegramLinkRequest": {
+      "type": "object"
+    },
+    "CreateTelegramLinkResponse": {
+      "type": "object",
+      "properties": {
+        "url": {
+          "type": "string",
+          "title": "e.g. https://t.me/cargoflow_bot?start=K7x9QpLm2aBc"
+        },
+        "expiresAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      }
+    },
     "GetRouteResponse": {
       "type": "object",
       "properties": {
@@ -419,6 +516,19 @@
       "properties": {
         "shipment": {
           "$ref": "#/definitions/Shipment"
+        }
+      }
+    },
+    "GetTelegramStatusResponse": {
+      "type": "object",
+      "properties": {
+        "linked": {
+          "type": "boolean"
+        },
+        "linkedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Set only when linked."
         }
       }
     },
@@ -611,6 +721,9 @@
           "description": "Access token lifetime in seconds."
         }
       }
+    },
+    "UnlinkTelegramResponse": {
+      "type": "object"
     },
     "UpdateShipmentStatusBody": {
       "type": "object",
