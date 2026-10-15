@@ -17,11 +17,13 @@ import (
 	"github.com/Andas-LV/cargoflow/pkg/postgres"
 	"github.com/Andas-LV/cargoflow/pkg/redisx"
 	"github.com/Andas-LV/cargoflow/pkg/shutdown"
+	"github.com/Andas-LV/cargoflow/services/shipment/data"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/config"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/events"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/grpcserver"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/repository"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/service"
+	"github.com/Andas-LV/cargoflow/services/shipment/internal/stations"
 	"github.com/Andas-LV/cargoflow/services/shipment/migrations"
 )
 
@@ -77,11 +79,27 @@ func run() error {
 	}
 
 	store := repository.NewStore(pool)
-	svc := service.New(store, repository.NewCache(rdb, cfg.CacheTTL), log)
+
+	// The station directory ships with the binary: sync it into the DB, then serve it from memory.
+	stationRows, err := stations.ParseCSV(data.StationsKZ)
+	if err != nil {
+		return err
+	}
+	if err := stations.Sync(ctx, store.Queries, stationRows); err != nil {
+		return err
+	}
+	dir, err := stations.Load(ctx, store.Queries)
+	if err != nil {
+		return err
+	}
+	log.Info("station directory loaded", "stations", dir.Len())
+
+	svc := service.New(store, repository.NewCache(rdb, cfg.CacheTTL), dir, log)
 	relay := events.NewRelay(store, nc, cfg.OutboxPollInterval, log)
 
 	grpcSrv, grpcHealth := grpcx.NewServer(log)
 	shipmentv1.RegisterShipmentServiceServer(grpcSrv, grpcserver.New(svc, log))
+	shipmentv1.RegisterStationServiceServer(grpcSrv, grpcserver.NewStationServer(dir))
 
 	httpSrv := health.Server(cfg.HTTPAddr, health.Checks{
 		"postgres": pool.Ping,

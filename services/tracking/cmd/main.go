@@ -76,9 +76,12 @@ func run() error {
 		return err
 	}
 	defer func() { _ = shipmentConn.Close() }()
-	shipments := service.NewGRPCShipments(shipmentv1.NewShipmentServiceClient(shipmentConn))
+	shipments := service.NewGRPCShipments(
+		shipmentv1.NewShipmentServiceClient(shipmentConn),
+		shipmentv1.NewStationServiceClient(shipmentConn),
+	)
 
-	svc := service.New(positions, shipments, nc, log)
+	svc := service.New(positions, shipments, shipments, nc, log)
 
 	cons, err := consumer.Start(ctx, nc, svc, log)
 	if err != nil {

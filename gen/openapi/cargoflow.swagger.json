@@ -14,6 +14,10 @@
       "description": "NotificationService manages where a user receives notifications.\nAll methods act on the authenticated user (`x-user-id` metadata set by the gateway)."
     },
     {
+      "name": "StationService",
+      "description": "StationService is the directory of Kazakhstan railway stations and halts.\nData: © OpenStreetMap contributors (ODbL)."
+    },
+    {
       "name": "ShipmentService",
       "description": "ShipmentService manages transportation requests (shipments).\nAll methods require an authenticated user; the gateway passes it as `x-user-id` metadata."
     },
@@ -408,26 +412,88 @@
           "TrackingService"
         ]
       }
+    },
+    "/v1/stations": {
+      "get": {
+        "summary": "SearchStations finds stations by name (Russian, Kazakh, English) or ESR code, for autocomplete.",
+        "operationId": "StationService_SearchStations",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/SearchStationsResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "query",
+            "description": "Part of a name or an ESR code, e.g. \"жезк\", \"Almaty\", \"677008\".",
+            "in": "query",
+            "required": true,
+            "type": "string"
+          },
+          {
+            "name": "pageSize",
+            "description": "Max items to return, 1..50. Defaults to 20.",
+            "in": "query",
+            "required": false,
+            "type": "integer",
+            "format": "int32"
+          }
+        ],
+        "tags": [
+          "StationService"
+        ]
+      }
+    },
+    "/v1/stations/{id}": {
+      "get": {
+        "operationId": "StationService_GetStation",
+        "responses": {
+          "200": {
+            "description": "A successful response.",
+            "schema": {
+              "$ref": "#/definitions/GetStationResponse"
+            }
+          },
+          "default": {
+            "description": "An unexpected error response.",
+            "schema": {
+              "$ref": "#/definitions/Status"
+            }
+          }
+        },
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "type": "string"
+          }
+        ],
+        "tags": [
+          "StationService"
+        ]
+      }
     }
   },
   "definitions": {
     "AddPositionBody": {
       "type": "object",
       "properties": {
-        "station": {
+        "stationId": {
           "type": "string"
-        },
-        "lat": {
-          "type": "number",
-          "format": "double"
-        },
-        "lon": {
-          "type": "number",
-          "format": "double"
         }
       },
       "required": [
-        "station"
+        "stationId"
       ]
     },
     "AddPositionResponse": {
@@ -462,17 +528,18 @@
         "cargoType": {
           "$ref": "#/definitions/CargoType"
         },
-        "origin": {
-          "type": "string"
+        "originStationId": {
+          "type": "string",
+          "description": "Station IDs from StationService, e.g. \"osm-n260543817\"."
         },
-        "destination": {
+        "destinationStationId": {
           "type": "string"
         }
       },
       "required": [
         "cargoType",
-        "origin",
-        "destination"
+        "originStationId",
+        "destinationStationId"
       ]
     },
     "CreateShipmentResponse": {
@@ -516,6 +583,14 @@
       "properties": {
         "shipment": {
           "$ref": "#/definitions/Shipment"
+        }
+      }
+    },
+    "GetStationResponse": {
+      "type": "object",
+      "properties": {
+        "station": {
+          "$ref": "#/definitions/Station"
         }
       }
     },
@@ -577,7 +652,8 @@
           "type": "string"
         },
         "station": {
-          "type": "string"
+          "type": "string",
+          "description": "Station name (Russian) at the time of recording."
         },
         "lat": {
           "type": "number",
@@ -594,6 +670,10 @@
         "recordedAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "stationId": {
+          "type": "string",
+          "description": "Station ID from the station directory (shipment.v1.StationService)."
         }
       }
     },
@@ -643,6 +723,18 @@
         }
       }
     },
+    "SearchStationsResponse": {
+      "type": "object",
+      "properties": {
+        "stations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "$ref": "#/definitions/Station"
+          }
+        }
+      }
+    },
     "Shipment": {
       "type": "object",
       "properties": {
@@ -655,14 +747,6 @@
         "cargoType": {
           "$ref": "#/definitions/CargoType"
         },
-        "origin": {
-          "type": "string",
-          "description": "Origin station, e.g. \"Astana-1\"."
-        },
-        "destination": {
-          "type": "string",
-          "description": "Destination station, e.g. \"Almaty-2\"."
-        },
         "status": {
           "$ref": "#/definitions/ShipmentStatus"
         },
@@ -673,6 +757,12 @@
         "updatedAt": {
           "type": "string",
           "format": "date-time"
+        },
+        "originStation": {
+          "$ref": "#/definitions/Station"
+        },
+        "destinationStation": {
+          "$ref": "#/definitions/Station"
         }
       }
     },
@@ -686,6 +776,55 @@
         "SHIPMENT_STATUS_CANCELLED"
       ],
       "default": "SHIPMENT_STATUS_UNSPECIFIED"
+    },
+    "Station": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable directory ID, e.g. \"osm-n922818608\"."
+        },
+        "esr": {
+          "type": "string",
+          "description": "6-digit ESR code; empty when unknown."
+        },
+        "kind": {
+          "$ref": "#/definitions/StationKind"
+        },
+        "name": {
+          "type": "string",
+          "description": "Name as signed locally (Kazakh or Russian)."
+        },
+        "nameRu": {
+          "type": "string"
+        },
+        "nameKk": {
+          "type": "string",
+          "description": "Empty when there is no Kazakh name."
+        },
+        "nameEn": {
+          "type": "string",
+          "description": "Empty when there is no English name."
+        },
+        "lat": {
+          "type": "number",
+          "format": "double"
+        },
+        "lon": {
+          "type": "number",
+          "format": "double"
+        }
+      }
+    },
+    "StationKind": {
+      "type": "string",
+      "enum": [
+        "STATION_KIND_UNSPECIFIED",
+        "STATION_KIND_STATION",
+        "STATION_KIND_HALT"
+      ],
+      "default": "STATION_KIND_UNSPECIFIED",
+      "description": " - STATION_KIND_STATION: A station: cargo operations are possible.\n - STATION_KIND_HALT: A halt (остановочный пункт): a stop without a station building."
     },
     "Status": {
       "type": "object",

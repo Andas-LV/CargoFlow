@@ -5,6 +5,7 @@ package shipment.v1;
 import "google/api/annotations.proto";
 import "google/api/field_behavior.proto";
 import "google/protobuf/timestamp.proto";
+import "shipment/v1/station.proto";
 
 option go_package = "github.com/Andas-LV/cargoflow/gen/go/shipment/v1;shipmentv1";
 
@@ -50,22 +51,28 @@ enum ShipmentStatus {
 }
 
 message Shipment {
+  // Free-text origin/destination were replaced by station references.
+  reserved 4, 5;
+  reserved "origin", "destination";
+
   string id = 1;
   string owner_id = 2;
   CargoType cargo_type = 3;
-  // Origin station, e.g. "Astana-1".
-  string origin = 4;
-  // Destination station, e.g. "Almaty-2".
-  string destination = 5;
   ShipmentStatus status = 6;
   google.protobuf.Timestamp created_at = 7;
   google.protobuf.Timestamp updated_at = 8;
+  Station origin_station = 9;
+  Station destination_station = 10;
 }
 
 message CreateShipmentRequest {
+  reserved 2, 3;
+  reserved "origin", "destination";
+
   CargoType cargo_type = 1 [(google.api.field_behavior) = REQUIRED];
-  string origin = 2 [(google.api.field_behavior) = REQUIRED];
-  string destination = 3 [(google.api.field_behavior) = REQUIRED];
+  // Station IDs from StationService, e.g. "osm-n260543817".
+  string origin_station_id = 4 [(google.api.field_behavior) = REQUIRED];
+  string destination_station_id = 5 [(google.api.field_behavior) = REQUIRED];
 }
 
 message CreateShipmentResponse {

@@ -18,4 +18,5 @@ type Position struct {
 	Lon        float64
 	Source     string
 	RecordedAt time.Time
+	StationID  string
 }

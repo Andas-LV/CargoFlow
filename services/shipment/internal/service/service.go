@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
-	"strings"
 
 	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
@@ -18,6 +17,7 @@ import (
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/events"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/repository"
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/repository/db"
+	"github.com/Andas-LV/cargoflow/services/shipment/internal/stations"
 )
 
 var (
@@ -27,6 +27,13 @@ var (
 )
 
 type Shipment = db.Shipment
+
+// View is a shipment together with its origin and destination stations.
+type View struct {
+	Shipment
+	Origin      stations.Station
+	Destination stations.Station
+}
 
 type CargoType string
 
@@ -56,67 +63,75 @@ const (
 )
 
 type Service struct {
-	store *repository.Store
-	cache *repository.Cache
-	log   *slog.Logger
+	store    *repository.Store
+	cache    *repository.Cache
+	stations *stations.Directory
+	log      *slog.Logger
 }
 
-func New(store *repository.Store, cache *repository.Cache, log *slog.Logger) *Service {
-	return &Service{store: store, cache: cache, log: log}
+func New(store *repository.Store, cache *repository.Cache, dir *stations.Directory, log *slog.Logger) *Service {
+	return &Service{store: store, cache: cache, stations: dir, log: log}
 }
 
 type CreateInput struct {
-	OwnerID     uuid.UUID
-	CargoType   CargoType
-	Origin      string
-	Destination string
+	OwnerID              uuid.UUID
+	CargoType            CargoType
+	OriginStationID      string
+	DestinationStationID string
 }
 
-func (s *Service) Create(ctx context.Context, in CreateInput) (Shipment, error) {
-	in.Origin, in.Destination = strings.TrimSpace(in.Origin), strings.TrimSpace(in.Destination)
-	switch {
-	case in.CargoType != CargoWagon && in.CargoType != CargoContainer:
-		return Shipment{}, fmt.Errorf("%w: cargo_type is required", ErrInvalidInput)
-	case in.Origin == "" || in.Destination == "":
-		return Shipment{}, fmt.Errorf("%w: origin and destination are required", ErrInvalidInput)
-	case in.Origin == in.Destination:
-		return Shipment{}, fmt.Errorf("%w: origin and destination must differ", ErrInvalidInput)
+func (s *Service) Create(ctx context.Context, in CreateInput) (View, error) {
+	if in.CargoType != CargoWagon && in.CargoType != CargoContainer {
+		return View{}, fmt.Errorf("%w: cargo_type is required", ErrInvalidInput)
+	}
+	origin, ok := s.stations.Get(in.OriginStationID)
+	if !ok {
+		return View{}, fmt.Errorf("%w: unknown origin station %q", ErrInvalidInput, in.OriginStationID)
+	}
+	destination, ok := s.stations.Get(in.DestinationStationID)
+	if !ok {
+		return View{}, fmt.Errorf("%w: unknown destination station %q", ErrInvalidInput, in.DestinationStationID)
+	}
+	if origin.ID == destination.ID {
+		return View{}, fmt.Errorf("%w: origin and destination must differ", ErrInvalidInput)
 	}
 
 	var created Shipment
 	err := s.store.InTx(ctx, func(q *db.Queries) error {
 		var err error
 		created, err = q.CreateShipment(ctx, db.CreateShipmentParams{
-			ID:          uuid.New(),
-			OwnerID:     in.OwnerID,
-			CargoType:   string(in.CargoType),
-			Origin:      in.Origin,
-			Destination: in.Destination,
-			Status:      string(StatusCreated),
+			ID:                   uuid.New(),
+			OwnerID:              in.OwnerID,
+			CargoType:            string(in.CargoType),
+			OriginStationID:      origin.ID,
+			DestinationStationID: destination.ID,
+			Status:               string(StatusCreated),
 		})
 		if err != nil {
 			return err
 		}
 		eventID := uuid.New()
 		return events.Enqueue(ctx, q, natsx.SubjectShipmentCreated, eventID, &eventsv1.ShipmentCreated{
-			EventId:     eventID.String(),
-			ShipmentId:  created.ID.String(),
-			OwnerId:     created.OwnerID.String(),
-			CargoType:   created.CargoType,
-			Origin:      created.Origin,
-			Destination: created.Destination,
-			OccurredAt:  timestamppb.New(created.CreatedAt),
+			EventId:              eventID.String(),
+			ShipmentId:           created.ID.String(),
+			OwnerId:              created.OwnerID.String(),
+			CargoType:            created.CargoType,
+			Origin:               origin.NameRu,
+			Destination:          destination.NameRu,
+			OriginStationId:      origin.ID,
+			DestinationStationId: destination.ID,
+			OccurredAt:           timestamppb.New(created.CreatedAt),
 		})
 	})
 	if err != nil {
-		return Shipment{}, fmt.Errorf("create shipment: %w", err)
+		return View{}, fmt.Errorf("create shipment: %w", err)
 	}
-	return created, nil
+	return View{Shipment: created, Origin: origin, Destination: destination}, nil
 }
 
 // Get returns a shipment owned by ownerID. Reads go through the Redis cache; cache errors
 // are logged and never fail the request.
-func (s *Service) Get(ctx context.Context, ownerID, id uuid.UUID) (Shipment, error) {
+func (s *Service) Get(ctx context.Context, ownerID, id uuid.UUID) (View, error) {
 	sh, hit, err := s.cache.Get(ctx, id)
 	if err != nil {
 		s.log.WarnContext(ctx, "shipment cache get", "err", err)
@@ -124,10 +139,10 @@ func (s *Service) Get(ctx context.Context, ownerID, id uuid.UUID) (Shipment, err
 	if !hit {
 		sh, err = s.store.GetShipment(ctx, id)
 		if errors.Is(err, pgx.ErrNoRows) {
-			return Shipment{}, ErrNotFound
+			return View{}, ErrNotFound
 		}
 		if err != nil {
-			return Shipment{}, err
+			return View{}, err
 		}
 		if err := s.cache.Set(ctx, sh); err != nil {
 			s.log.WarnContext(ctx, "shipment cache set", "err", err)
@@ -135,20 +150,28 @@ func (s *Service) Get(ctx context.Context, ownerID, id uuid.UUID) (Shipment, err
 	}
 	// Another user's shipment looks exactly like a missing one.
 	if sh.OwnerID != ownerID {
-		return Shipment{}, ErrNotFound
+		return View{}, ErrNotFound
 	}
-	return sh, nil
+	return s.view(sh), nil
 }
 
-func (s *Service) List(ctx context.Context, ownerID uuid.UUID, pageSize int32) ([]Shipment, error) {
+func (s *Service) List(ctx context.Context, ownerID uuid.UUID, pageSize int32) ([]View, error) {
 	if pageSize <= 0 {
 		pageSize = defaultPageSize
 	}
 	pageSize = min(pageSize, maxPageSize)
-	return s.store.ListShipmentsByOwner(ctx, db.ListShipmentsByOwnerParams{OwnerID: ownerID, Limit: pageSize})
+	rows, err := s.store.ListShipmentsByOwner(ctx, db.ListShipmentsByOwnerParams{OwnerID: ownerID, Limit: pageSize})
+	if err != nil {
+		return nil, err
+	}
+	views := make([]View, 0, len(rows))
+	for _, sh := range rows {
+		views = append(views, s.view(sh))
+	}
+	return views, nil
 }
 
-func (s *Service) UpdateStatus(ctx context.Context, ownerID, id uuid.UUID, next Status) (Shipment, error) {
+func (s *Service) UpdateStatus(ctx context.Context, ownerID, id uuid.UUID, next Status) (View, error) {
 	var updated Shipment
 	err := s.store.InTx(ctx, func(q *db.Queries) error {
 		cur, err := q.GetShipmentForUpdate(ctx, id)
@@ -177,12 +200,20 @@ func (s *Service) UpdateStatus(ctx context.Context, ownerID, id uuid.UUID, next 
 		})
 	})
 	if err != nil {
-		return Shipment{}, err
+		return View{}, err
 	}
 	if err := s.cache.Delete(ctx, id); err != nil {
 		s.log.WarnContext(ctx, "shipment cache delete", "err", err)
 	}
-	return updated, nil
+	return s.view(updated), nil
+}
+
+// view attaches stations. They always exist: shipments reference stations by foreign key and
+// the directory is loaded from the same table.
+func (s *Service) view(sh Shipment) View {
+	origin, _ := s.stations.Get(sh.OriginStationID)
+	destination, _ := s.stations.Get(sh.DestinationStationID)
+	return View{Shipment: sh, Origin: origin, Destination: destination}
 }
 
 func canTransition(from, to Status) bool {

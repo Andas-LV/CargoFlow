@@ -16,9 +16,12 @@ message ShipmentCreated {
   string owner_id = 3;
   // "wagon" | "container"
   string cargo_type = 4;
+  // Station names (Russian), for display.
   string origin = 5;
   string destination = 6;
   google.protobuf.Timestamp occurred_at = 7;
+  string origin_station_id = 8;
+  string destination_station_id = 9;
 }
 
 // Subject: shipment.status_changed. Publisher: shipment (via outbox).
@@ -42,4 +45,5 @@ message PositionUpdated {
   google.protobuf.Timestamp occurred_at = 6;
   // Owner of the shipment: the user who recorded the position.
   string owner_id = 7;
+  string station_id = 8;
 }

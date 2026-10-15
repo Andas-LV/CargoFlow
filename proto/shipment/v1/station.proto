@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package shipment.v1;
+
+import "google/api/annotations.proto";
+import "google/api/field_behavior.proto";
+
+option go_package = "github.com/Andas-LV/cargoflow/gen/go/shipment/v1;shipmentv1";
+
+// StationService is the directory of Kazakhstan railway stations and halts.
+// Data: © OpenStreetMap contributors (ODbL).
+service StationService {
+  // SearchStations finds stations by name (Russian, Kazakh, English) or ESR code, for autocomplete.
+  rpc SearchStations(SearchStationsRequest) returns (SearchStationsResponse) {
+    option (google.api.http) = {get: "/v1/stations"};
+  }
+
+  rpc GetStation(GetStationRequest) returns (GetStationResponse) {
+    option (google.api.http) = {get: "/v1/stations/{id}"};
+  }
+}
+
+enum StationKind {
+  STATION_KIND_UNSPECIFIED = 0;
+  // A station: cargo operations are possible.
+  STATION_KIND_STATION = 1;
+  // A halt (остановочный пункт): a stop without a station building.
+  STATION_KIND_HALT = 2;
+}
+
+message Station {
+  // Stable directory ID, e.g. "osm-n922818608".
+  string id = 1;
+  // 6-digit ESR code; empty when unknown.
+  string esr = 2;
+  StationKind kind = 3;
+  // Name as signed locally (Kazakh or Russian).
+  string name = 4;
+  string name_ru = 5;
+  // Empty when there is no Kazakh name.
+  string name_kk = 6;
+  // Empty when there is no English name.
+  string name_en = 7;
+  double lat = 8;
+  double lon = 9;
+}
+
+message SearchStationsRequest {
+  // Part of a name or an ESR code, e.g. "жезк", "Almaty", "677008".
+  string query = 1 [(google.api.field_behavior) = REQUIRED];
+  // Max items to return, 1..50. Defaults to 20.
+  int32 page_size = 2;
+}
+
+message SearchStationsResponse {
+  repeated Station stations = 1;
+}
+
+message GetStationRequest {
+  string id = 1 [(google.api.field_behavior) = REQUIRED];
+}
+
+message GetStationResponse {
+  Station station = 1;
+}

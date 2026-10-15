@@ -20,12 +20,24 @@ type Outbox struct {
 }
 
 type Shipment struct {
-	ID          uuid.UUID
-	OwnerID     uuid.UUID
-	CargoType   string
-	Origin      string
-	Destination string
-	Status      string
-	CreatedAt   time.Time
-	UpdatedAt   time.Time
+	ID                   uuid.UUID
+	OwnerID              uuid.UUID
+	CargoType            string
+	Status               string
+	CreatedAt            time.Time
+	UpdatedAt            time.Time
+	OriginStationID      string
+	DestinationStationID string
+}
+
+type Station struct {
+	ID     string
+	Esr    string
+	Kind   string
+	Name   string
+	NameRu string
+	NameKk string
+	NameEn string
+	Lat    float64
+	Lon    float64
 }

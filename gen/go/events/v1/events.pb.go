@@ -33,12 +33,15 @@ type ShipmentCreated struct {
 	ShipmentId string                 `protobuf:"bytes,2,opt,name=shipment_id,json=shipmentId,proto3" json:"shipment_id,omitempty"`
 	OwnerId    string                 `protobuf:"bytes,3,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
 	// "wagon" | "container"
-	CargoType     string                 `protobuf:"bytes,4,opt,name=cargo_type,json=cargoType,proto3" json:"cargo_type,omitempty"`
-	Origin        string                 `protobuf:"bytes,5,opt,name=origin,proto3" json:"origin,omitempty"`
-	Destination   string                 `protobuf:"bytes,6,opt,name=destination,proto3" json:"destination,omitempty"`
-	OccurredAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	CargoType string `protobuf:"bytes,4,opt,name=cargo_type,json=cargoType,proto3" json:"cargo_type,omitempty"`
+	// Station names (Russian), for display.
+	Origin               string                 `protobuf:"bytes,5,opt,name=origin,proto3" json:"origin,omitempty"`
+	Destination          string                 `protobuf:"bytes,6,opt,name=destination,proto3" json:"destination,omitempty"`
+	OccurredAt           *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
+	OriginStationId      string                 `protobuf:"bytes,8,opt,name=origin_station_id,json=originStationId,proto3" json:"origin_station_id,omitempty"`
+	DestinationStationId string                 `protobuf:"bytes,9,opt,name=destination_station_id,json=destinationStationId,proto3" json:"destination_station_id,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *ShipmentCreated) Reset() {
@@ -118,6 +121,20 @@ func (x *ShipmentCreated) GetOccurredAt() *timestamppb.Timestamp {
 		return x.OccurredAt
 	}
 	return nil
+}
+
+func (x *ShipmentCreated) GetOriginStationId() string {
+	if x != nil {
+		return x.OriginStationId
+	}
+	return ""
+}
+
+func (x *ShipmentCreated) GetDestinationStationId() string {
+	if x != nil {
+		return x.DestinationStationId
+	}
+	return ""
 }
 
 // Subject: shipment.status_changed. Publisher: shipment (via outbox).
@@ -217,6 +234,7 @@ type PositionUpdated struct {
 	OccurredAt *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=occurred_at,json=occurredAt,proto3" json:"occurred_at,omitempty"`
 	// Owner of the shipment: the user who recorded the position.
 	OwnerId       string `protobuf:"bytes,7,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	StationId     string `protobuf:"bytes,8,opt,name=station_id,json=stationId,proto3" json:"station_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -300,11 +318,18 @@ func (x *PositionUpdated) GetOwnerId() string {
 	return ""
 }
 
+func (x *PositionUpdated) GetStationId() string {
+	if x != nil {
+		return x.StationId
+	}
+	return ""
+}
+
 var File_events_v1_events_proto protoreflect.FileDescriptor
 
 const file_events_v1_events_proto_rawDesc = "" +
 	"\n" +
-	"\x16events/v1/events.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xfe\x01\n" +
+	"\x16events/v1/events.proto\x12\tevents.v1\x1a\x1fgoogle/protobuf/timestamp.proto\"\xe0\x02\n" +
 	"\x0fShipmentCreated\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1f\n" +
 	"\vshipment_id\x18\x02 \x01(\tR\n" +
@@ -315,7 +340,9 @@ const file_events_v1_events_proto_rawDesc = "" +
 	"\x06origin\x18\x05 \x01(\tR\x06origin\x12 \n" +
 	"\vdestination\x18\x06 \x01(\tR\vdestination\x12;\n" +
 	"\voccurred_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt\"\xe9\x01\n" +
+	"occurredAt\x12*\n" +
+	"\x11origin_station_id\x18\b \x01(\tR\x0foriginStationId\x124\n" +
+	"\x16destination_station_id\x18\t \x01(\tR\x14destinationStationId\"\xe9\x01\n" +
 	"\x15ShipmentStatusChanged\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1f\n" +
 	"\vshipment_id\x18\x02 \x01(\tR\n" +
@@ -326,7 +353,7 @@ const file_events_v1_events_proto_rawDesc = "" +
 	"\n" +
 	"new_status\x18\x05 \x01(\tR\tnewStatus\x12;\n" +
 	"\voccurred_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"occurredAt\"\xe3\x01\n" +
+	"occurredAt\"\x82\x02\n" +
 	"\x0fPositionUpdated\x12\x19\n" +
 	"\bevent_id\x18\x01 \x01(\tR\aeventId\x12\x1f\n" +
 	"\vshipment_id\x18\x02 \x01(\tR\n" +
@@ -336,7 +363,9 @@ const file_events_v1_events_proto_rawDesc = "" +
 	"\x03lon\x18\x05 \x01(\x01R\x03lon\x12;\n" +
 	"\voccurred_at\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
 	"occurredAt\x12\x19\n" +
-	"\bowner_id\x18\a \x01(\tR\aownerIdB9Z7github.com/Andas-LV/cargoflow/gen/go/events/v1;eventsv1b\x06proto3"
+	"\bowner_id\x18\a \x01(\tR\aownerId\x12\x1d\n" +
+	"\n" +
+	"station_id\x18\b \x01(\tR\tstationIdB9Z7github.com/Andas-LV/cargoflow/gen/go/events/v1;eventsv1b\x06proto3"
 
 var (
 	file_events_v1_events_proto_rawDescOnce sync.Once

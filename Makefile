@@ -40,6 +40,10 @@ sqlc: ## Generate type-safe DB code for all services with a database
 	go tool sqlc generate -f services/tracking/sqlc.yaml
 	go tool sqlc generate -f services/notification/sqlc.yaml
 
+.PHONY: stations
+stations: ## Rebuild the Kazakhstan station directory from OpenStreetMap
+	go run ./tools/stations
+
 .PHONY: generate
 generate: proto sqlc ## Run all code generators
 

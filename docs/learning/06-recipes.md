@@ -19,7 +19,7 @@ ALTER TABLE shipments DROP COLUMN weight_kg;
 **2. SQL-запрос** — в `services/shipment/queries/shipments.sql` добавь колонку в `INSERT` у `CreateShipment`:
 
 ```sql
-INSERT INTO shipments (id, owner_id, cargo_type, origin, destination, status, weight_kg)
+INSERT INTO shipments (id, owner_id, cargo_type, origin_station_id, destination_station_id, status, weight_kg)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING *;
 ```

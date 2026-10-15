@@ -32,10 +32,10 @@ func (s *Server) CreateShipment(ctx context.Context, req *shipmentv1.CreateShipm
 		return nil, err
 	}
 	sh, err := s.svc.Create(ctx, service.CreateInput{
-		OwnerID:     owner,
-		CargoType:   cargoFromProto[req.GetCargoType()],
-		Origin:      req.GetOrigin(),
-		Destination: req.GetDestination(),
+		OwnerID:              owner,
+		CargoType:            cargoFromProto[req.GetCargoType()],
+		OriginStationID:      req.GetOriginStationId(),
+		DestinationStationID: req.GetDestinationStationId(),
 	})
 	if err != nil {
 		return nil, s.toStatus(ctx, err)
@@ -138,16 +138,16 @@ var (
 	}
 )
 
-func toProto(sh service.Shipment) *shipmentv1.Shipment {
+func toProto(sh service.View) *shipmentv1.Shipment {
 	return &shipmentv1.Shipment{
-		Id:          sh.ID.String(),
-		OwnerId:     sh.OwnerID.String(),
-		CargoType:   cargoToProto[sh.CargoType],
-		Origin:      sh.Origin,
-		Destination: sh.Destination,
-		Status:      statusToProto[sh.Status],
-		CreatedAt:   timestamppb.New(sh.CreatedAt),
-		UpdatedAt:   timestamppb.New(sh.UpdatedAt),
+		Id:                 sh.ID.String(),
+		OwnerId:            sh.OwnerID.String(),
+		CargoType:          cargoToProto[sh.CargoType],
+		Status:             statusToProto[sh.Status],
+		CreatedAt:          timestamppb.New(sh.CreatedAt),
+		UpdatedAt:          timestamppb.New(sh.UpdatedAt),
+		OriginStation:      stationToProto(sh.Origin),
+		DestinationStation: stationToProto(sh.Destination),
 	}
 }
 

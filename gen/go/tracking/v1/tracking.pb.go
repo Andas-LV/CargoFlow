@@ -27,12 +27,15 @@ type Position struct {
 	state      protoimpl.MessageState `protogen:"open.v1"`
 	Id         string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
 	ShipmentId string                 `protobuf:"bytes,2,opt,name=shipment_id,json=shipmentId,proto3" json:"shipment_id,omitempty"`
-	Station    string                 `protobuf:"bytes,3,opt,name=station,proto3" json:"station,omitempty"`
-	Lat        float64                `protobuf:"fixed64,4,opt,name=lat,proto3" json:"lat,omitempty"`
-	Lon        float64                `protobuf:"fixed64,5,opt,name=lon,proto3" json:"lon,omitempty"`
+	// Station name (Russian) at the time of recording.
+	Station string  `protobuf:"bytes,3,opt,name=station,proto3" json:"station,omitempty"`
+	Lat     float64 `protobuf:"fixed64,4,opt,name=lat,proto3" json:"lat,omitempty"`
+	Lon     float64 `protobuf:"fixed64,5,opt,name=lon,proto3" json:"lon,omitempty"`
 	// What produced this position: "manual" or an event subject such as "shipment.created".
-	Source        string                 `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
-	RecordedAt    *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=recorded_at,json=recordedAt,proto3" json:"recorded_at,omitempty"`
+	Source     string                 `protobuf:"bytes,6,opt,name=source,proto3" json:"source,omitempty"`
+	RecordedAt *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=recorded_at,json=recordedAt,proto3" json:"recorded_at,omitempty"`
+	// Station ID from the station directory (shipment.v1.StationService).
+	StationId     string `protobuf:"bytes,8,opt,name=station_id,json=stationId,proto3" json:"station_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -116,12 +119,17 @@ func (x *Position) GetRecordedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Position) GetStationId() string {
+	if x != nil {
+		return x.StationId
+	}
+	return ""
+}
+
 type AddPositionRequest struct {
 	state         protoimpl.MessageState `protogen:"open.v1"`
 	ShipmentId    string                 `protobuf:"bytes,1,opt,name=shipment_id,json=shipmentId,proto3" json:"shipment_id,omitempty"`
-	Station       string                 `protobuf:"bytes,2,opt,name=station,proto3" json:"station,omitempty"`
-	Lat           float64                `protobuf:"fixed64,3,opt,name=lat,proto3" json:"lat,omitempty"`
-	Lon           float64                `protobuf:"fixed64,4,opt,name=lon,proto3" json:"lon,omitempty"`
+	StationId     string                 `protobuf:"bytes,5,opt,name=station_id,json=stationId,proto3" json:"station_id,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -163,25 +171,11 @@ func (x *AddPositionRequest) GetShipmentId() string {
 	return ""
 }
 
-func (x *AddPositionRequest) GetStation() string {
+func (x *AddPositionRequest) GetStationId() string {
 	if x != nil {
-		return x.Station
+		return x.StationId
 	}
 	return ""
-}
-
-func (x *AddPositionRequest) GetLat() float64 {
-	if x != nil {
-		return x.Lat
-	}
-	return 0
-}
-
-func (x *AddPositionRequest) GetLon() float64 {
-	if x != nil {
-		return x.Lon
-	}
-	return 0
 }
 
 type AddPositionResponse struct {
@@ -320,7 +314,7 @@ var File_tracking_v1_tracking_proto protoreflect.FileDescriptor
 
 const file_tracking_v1_tracking_proto_rawDesc = "" +
 	"\n" +
-	"\x1atracking/v1/tracking.proto\x12\vtracking.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xce\x01\n" +
+	"\x1atracking/v1/tracking.proto\x12\vtracking.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xed\x01\n" +
 	"\bPosition\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x1f\n" +
 	"\vshipment_id\x18\x02 \x01(\tR\n" +
@@ -330,13 +324,14 @@ const file_tracking_v1_tracking_proto_rawDesc = "" +
 	"\x03lon\x18\x05 \x01(\x01R\x03lon\x12\x16\n" +
 	"\x06source\x18\x06 \x01(\tR\x06source\x12;\n" +
 	"\vrecorded_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\n" +
-	"recordedAt\"}\n" +
+	"recordedAt\x12\x1d\n" +
+	"\n" +
+	"station_id\x18\b \x01(\tR\tstationId\"\x83\x01\n" +
 	"\x12AddPositionRequest\x12$\n" +
 	"\vshipment_id\x18\x01 \x01(\tB\x03\xe0A\x02R\n" +
-	"shipmentId\x12\x1d\n" +
-	"\astation\x18\x02 \x01(\tB\x03\xe0A\x02R\astation\x12\x10\n" +
-	"\x03lat\x18\x03 \x01(\x01R\x03lat\x12\x10\n" +
-	"\x03lon\x18\x04 \x01(\x01R\x03lon\"H\n" +
+	"shipmentId\x12\"\n" +
+	"\n" +
+	"station_id\x18\x05 \x01(\tB\x03\xe0A\x02R\tstationIdJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04J\x04\b\x04\x10\x05R\astationR\x03latR\x03lon\"H\n" +
 	"\x13AddPositionResponse\x121\n" +
 	"\bposition\x18\x01 \x01(\v2\x15.tracking.v1.PositionR\bposition\"7\n" +
 	"\x0fGetRouteRequest\x12$\n" +

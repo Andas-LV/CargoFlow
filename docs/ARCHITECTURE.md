@@ -8,8 +8,8 @@
 |---|---|---|---|---|
 | gateway | счётчики rate limit (Redis `rl:*`) | auth, shipment, tracking, notification | — | — |
 | auth | `users` (Postgres `auth`), refresh-сессии (Redis `refresh:*`) | — | — | — |
-| shipment | `shipments`, `outbox` (Postgres `shipment`), кеш (Redis `shipment:*`) | — | `shipment.created`, `shipment.status_changed` | — |
-| tracking | `positions` (Postgres `tracking`) | shipment (`GetShipment`) | `tracking.position_updated` | `shipment.created` |
+| shipment | `shipments`, `outbox`, справочник `stations` (Postgres `shipment`), кеш (Redis `shipment:*`) | — | `shipment.created`, `shipment.status_changed` | — |
+| tracking | `positions` (Postgres `tracking`) | shipment (`GetShipment`, `StationService.GetStation`) | `tracking.position_updated` | `shipment.created` |
 | notification | `telegram_links` (Postgres `notification`), одноразовые коды привязки (Redis `tglink:*`) | Telegram Bot API | — | `shipment.>`, `tracking.>` |
 
 Правила:
@@ -43,6 +43,15 @@ Browser ──REST──▶ gateway ──gRPC──▶ auth / shipment / tracki
 4. `POST /v1/auth/refresh` атомарно забирает сессию из Redis (`GETDEL`), поэтому refresh-токен одноразовый: повторное использование даёт 401.
 
 Защита от перебора email по времени ответа: для несуществующего пользователя login всё равно сравнивает пароль с фиктивным bcrypt-хешем.
+
+## Справочник станций
+
+Справочник принадлежит shipment: заявки ссылаются на станции внешним ключом (`origin_station_id`, `destination_station_id`).
+
+- Источник — `services/shipment/data/stations_kz.csv` (OpenStreetMap + реестр ЕСР, собирается `tools/stations`), CSV встроен в бинарник.
+- При старте shipment делает upsert всех строк в таблицу `stations` одним запросом и загружает её в память: около 1 200 записей, поиск и выдача по ID без запросов к БД. Строки не удаляются, на них ссылаются заявки.
+- API — отдельный gRPC-сервис `shipment.v1.StationService` (`SearchStations`, `GetStation`) на том же порту. Это справочные данные, поэтому `x-user-id` не нужен; через gateway, как и всё под `/v1`, нужен токен.
+- tracking не хранит справочник: при отметке станции он вызывает `GetStation` и сохраняет в точке маршрута снимок — ID, название и координаты.
 
 ## Асинхронное взаимодействие: NATS JetStream
 

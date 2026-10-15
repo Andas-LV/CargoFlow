@@ -6,7 +6,8 @@
 await fetch('http://localhost:8080/v1/shipments', {
   method: 'POST',
   headers: { Authorization: `Bearer ${accessToken}`, 'Content-Type': 'application/json' },
-  body: JSON.stringify({ cargoType: 'CARGO_TYPE_WAGON', origin: 'Astana-1', destination: 'Almaty-2' }),
+  // ID станций берутся из поиска GET /v1/stations?query=...
+  body: JSON.stringify({ cargoType: 'CARGO_TYPE_WAGON', originStationId: 'osm-n260543817', destinationStationId: 'osm-n922818608' }),
 })
 ```
 
@@ -48,7 +49,7 @@ sequenceDiagram
 ## Шаг 2. shipment: контроллер → логика → база
 
 1. **grpcserver** ([server.go](../../services/shipment/internal/grpcserver/server.go)) — достаёт `userId` из metadata, переводит enum `CARGO_TYPE_WAGON` во внутреннее `"wagon"` и зовёт сервисный слой.
-2. **service** ([service.go](../../services/shipment/internal/service/service.go)) — проверяет данные (откуда и куда заполнены и различаются) и в **одной транзакции**:
+2. **service** ([service.go](../../services/shipment/internal/service/service.go)) — проверяет данные (обе станции есть в справочнике и различаются) и в **одной транзакции**:
    - вставляет строку в `shipments`;
    - вставляет событие `shipment.created` в таблицу `outbox`.
 3. Транзакция закоммичена — ответ идёт обратно: grpcserver → gateway → JSON → браузер.

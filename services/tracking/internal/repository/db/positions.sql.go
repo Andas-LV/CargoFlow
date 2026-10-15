@@ -13,14 +13,15 @@ import (
 )
 
 const insertPosition = `-- name: InsertPosition :execrows
-INSERT INTO positions (id, shipment_id, station, lat, lon, source, recorded_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO positions (id, shipment_id, station_id, station, lat, lon, source, recorded_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (id) DO NOTHING
 `
 
 type InsertPositionParams struct {
 	ID         uuid.UUID
 	ShipmentID uuid.UUID
+	StationID  string
 	Station    string
 	Lat        float64
 	Lon        float64
@@ -33,6 +34,7 @@ func (q *Queries) InsertPosition(ctx context.Context, arg InsertPositionParams) 
 	result, err := q.db.Exec(ctx, insertPosition,
 		arg.ID,
 		arg.ShipmentID,
+		arg.StationID,
 		arg.Station,
 		arg.Lat,
 		arg.Lon,
@@ -46,7 +48,7 @@ func (q *Queries) InsertPosition(ctx context.Context, arg InsertPositionParams) 
 }
 
 const listPositionsByShipment = `-- name: ListPositionsByShipment :many
-SELECT id, shipment_id, station, lat, lon, source, recorded_at FROM positions
+SELECT id, shipment_id, station, lat, lon, source, recorded_at, station_id FROM positions
 WHERE shipment_id = $1
 ORDER BY recorded_at
 `
@@ -68,6 +70,7 @@ func (q *Queries) ListPositionsByShipment(ctx context.Context, shipmentID uuid.U
 			&i.Lon,
 			&i.Source,
 			&i.RecordedAt,
+			&i.StationID,
 		); err != nil {
 			return nil, err
 		}

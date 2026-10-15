@@ -24,7 +24,16 @@ func NewPositions(pool *pgxpool.Pool) *Positions {
 // Insert stores p. It returns false without error when a row with the same ID already
 // exists, which makes event handlers that use the event ID as row ID idempotent.
 func (r *Positions) Insert(ctx context.Context, p Position) (bool, error) {
-	n, err := r.q.InsertPosition(ctx, db.InsertPositionParams(p))
+	n, err := r.q.InsertPosition(ctx, db.InsertPositionParams{
+		ID:         p.ID,
+		ShipmentID: p.ShipmentID,
+		StationID:  p.StationID,
+		Station:    p.Station,
+		Lat:        p.Lat,
+		Lon:        p.Lon,
+		Source:     p.Source,
+		RecordedAt: p.RecordedAt,
+	})
 	if err != nil {
 		return false, err
 	}

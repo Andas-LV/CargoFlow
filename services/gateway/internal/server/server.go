@@ -58,6 +58,9 @@ func New(ctx context.Context, cfg config.Config, b Backends, rdb *redis.Client, 
 	if err := shipmentv1.RegisterShipmentServiceHandler(ctx, gw, b.Shipment); err != nil {
 		return nil, fmt.Errorf("register shipment routes: %w", err)
 	}
+	if err := shipmentv1.RegisterStationServiceHandler(ctx, gw, b.Shipment); err != nil {
+		return nil, fmt.Errorf("register station routes: %w", err)
+	}
 	if err := trackingv1.RegisterTrackingServiceHandler(ctx, gw, b.Tracking); err != nil {
 		return nil, fmt.Errorf("register tracking routes: %w", err)
 	}

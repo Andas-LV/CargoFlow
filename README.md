@@ -97,11 +97,13 @@ Postgres проброшен на **5434**, потому что 5432 часто �
 | POST | `/v1/auth/register` | — | регистрация (`email`, `password` ≥ 8 символов) |
 | POST | `/v1/auth/login` | — | пара токенов `accessToken` / `refreshToken` |
 | POST | `/v1/auth/refresh` | — | ротация refresh-токена (старый становится недействительным) |
-| POST | `/v1/shipments` | ✓ | создать заявку (`cargoType`, `origin`, `destination`) |
+| GET | `/v1/stations?query=` | ✓ | поиск станций для автокомплита: по названию (рус/каз/англ) или коду ЕСР, `pageSize` до 50 |
+| GET | `/v1/stations/{id}` | ✓ | станция по ID |
+| POST | `/v1/shipments` | ✓ | создать заявку (`cargoType`, `originStationId`, `destinationStationId`) |
 | GET | `/v1/shipments` | ✓ | мои заявки, новые первыми (`?pageSize=20`, максимум 100) |
 | GET | `/v1/shipments/{id}` | ✓ | заявка по ID |
 | PATCH | `/v1/shipments/{id}/status` | ✓ | смена статуса: `CREATED → IN_TRANSIT → DELIVERED`, отмена из первых двух |
-| POST | `/v1/shipments/{shipmentId}/positions` | ✓ | отметить прохождение станции (`station`, `lat`, `lon`) |
+| POST | `/v1/shipments/{shipmentId}/positions` | ✓ | отметить прохождение станции (`stationId`; название и координаты берутся из справочника) |
 | GET | `/v1/shipments/{shipmentId}/route` | ✓ | история маршрута |
 | POST | `/v1/notifications/telegram/link` | ✓ | одноразовая ссылка `t.me/<бот>?start=<код>` (живёт 10 минут) для подключения Telegram |
 | GET | `/v1/notifications/telegram` | ✓ | подключён ли Telegram (`linked`, `linkedAt`) |
@@ -142,16 +144,27 @@ TOKEN=$(curl -s -X POST localhost:8080/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"demo@cargoflow.dev","password":"password123"}' | jq -r .tokens.accessToken)
 
-# создание заявки
+# поиск станций (ID нужны для заявки)
+curl -s -G localhost:8080/v1/stations --data-urlencode "query=Almaty" -H "Authorization: Bearer $TOKEN"
+
+# создание заявки: Алматы-1 → Жезказган
 curl -s -X POST localhost:8080/v1/shipments \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
-  -d '{"cargoType":"CARGO_TYPE_CONTAINER","origin":"Astana-1","destination":"Almaty-2"}'
+  -d '{"cargoType":"CARGO_TYPE_CONTAINER","originStationId":"osm-n260543817","destinationStationId":"osm-n922818608"}'
 
 # маршрут: первую точку (станцию отправления) tracking добавил сам по событию shipment.created
 curl -s localhost:8080/v1/shipments/<id>/route -H "Authorization: Bearer $TOKEN"
 ```
 
 Если владелец заявки подключил Telegram (см. ниже), ему придёт уведомление, в логах notification — `"msg":"telegram notification sent"`, а в Jaeger — один трейс: `gateway → shipment → publish shipment.created → process shipment.created` в tracking и notification.
+
+### Справочник станций
+
+Заявки и маршруты ссылаются на станции из справочника: 1 200 станций и остановочных пунктов Казахстана с кодами ЕСР, названиями на русском, казахском и английском и координатами.
+
+- Данные — [services/shipment/data/stations_kz.csv](services/shipment/data/stations_kz.csv), собраны из OpenStreetMap командой `make stations`. Описание — в [README справочника](services/shipment/data/README.md).
+- shipment при старте загружает CSV в таблицу `stations` и ищет по ней в памяти. Поиск понимает казахские буквы с русской клавиатуры: «жезказган» находит «Жезқазған».
+- Лицензия ODbL: где показываются станции, нужна подпись **© OpenStreetMap contributors**.
 
 ### Уведомления в Telegram
 

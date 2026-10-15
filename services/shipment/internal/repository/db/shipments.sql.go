@@ -12,18 +12,18 @@ import (
 )
 
 const createShipment = `-- name: CreateShipment :one
-INSERT INTO shipments (id, owner_id, cargo_type, origin, destination, status)
+INSERT INTO shipments (id, owner_id, cargo_type, origin_station_id, destination_station_id, status)
 VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, owner_id, cargo_type, origin, destination, status, created_at, updated_at
+RETURNING id, owner_id, cargo_type, status, created_at, updated_at, origin_station_id, destination_station_id
 `
 
 type CreateShipmentParams struct {
-	ID          uuid.UUID
-	OwnerID     uuid.UUID
-	CargoType   string
-	Origin      string
-	Destination string
-	Status      string
+	ID                   uuid.UUID
+	OwnerID              uuid.UUID
+	CargoType            string
+	OriginStationID      string
+	DestinationStationID string
+	Status               string
 }
 
 func (q *Queries) CreateShipment(ctx context.Context, arg CreateShipmentParams) (Shipment, error) {
@@ -31,8 +31,8 @@ func (q *Queries) CreateShipment(ctx context.Context, arg CreateShipmentParams) 
 		arg.ID,
 		arg.OwnerID,
 		arg.CargoType,
-		arg.Origin,
-		arg.Destination,
+		arg.OriginStationID,
+		arg.DestinationStationID,
 		arg.Status,
 	)
 	var i Shipment
@@ -40,17 +40,17 @@ func (q *Queries) CreateShipment(ctx context.Context, arg CreateShipmentParams) 
 		&i.ID,
 		&i.OwnerID,
 		&i.CargoType,
-		&i.Origin,
-		&i.Destination,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OriginStationID,
+		&i.DestinationStationID,
 	)
 	return i, err
 }
 
 const getShipment = `-- name: GetShipment :one
-SELECT id, owner_id, cargo_type, origin, destination, status, created_at, updated_at FROM shipments
+SELECT id, owner_id, cargo_type, status, created_at, updated_at, origin_station_id, destination_station_id FROM shipments
 WHERE id = $1
 `
 
@@ -61,17 +61,17 @@ func (q *Queries) GetShipment(ctx context.Context, id uuid.UUID) (Shipment, erro
 		&i.ID,
 		&i.OwnerID,
 		&i.CargoType,
-		&i.Origin,
-		&i.Destination,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OriginStationID,
+		&i.DestinationStationID,
 	)
 	return i, err
 }
 
 const getShipmentForUpdate = `-- name: GetShipmentForUpdate :one
-SELECT id, owner_id, cargo_type, origin, destination, status, created_at, updated_at FROM shipments
+SELECT id, owner_id, cargo_type, status, created_at, updated_at, origin_station_id, destination_station_id FROM shipments
 WHERE id = $1
 FOR UPDATE
 `
@@ -83,17 +83,17 @@ func (q *Queries) GetShipmentForUpdate(ctx context.Context, id uuid.UUID) (Shipm
 		&i.ID,
 		&i.OwnerID,
 		&i.CargoType,
-		&i.Origin,
-		&i.Destination,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OriginStationID,
+		&i.DestinationStationID,
 	)
 	return i, err
 }
 
 const listShipmentsByOwner = `-- name: ListShipmentsByOwner :many
-SELECT id, owner_id, cargo_type, origin, destination, status, created_at, updated_at FROM shipments
+SELECT id, owner_id, cargo_type, status, created_at, updated_at, origin_station_id, destination_station_id FROM shipments
 WHERE owner_id = $1
 ORDER BY created_at DESC
 LIMIT $2
@@ -117,11 +117,11 @@ func (q *Queries) ListShipmentsByOwner(ctx context.Context, arg ListShipmentsByO
 			&i.ID,
 			&i.OwnerID,
 			&i.CargoType,
-			&i.Origin,
-			&i.Destination,
 			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.OriginStationID,
+			&i.DestinationStationID,
 		); err != nil {
 			return nil, err
 		}
@@ -137,7 +137,7 @@ const updateShipmentStatus = `-- name: UpdateShipmentStatus :one
 UPDATE shipments
 SET status = $2, updated_at = now()
 WHERE id = $1
-RETURNING id, owner_id, cargo_type, origin, destination, status, created_at, updated_at
+RETURNING id, owner_id, cargo_type, status, created_at, updated_at, origin_station_id, destination_station_id
 `
 
 type UpdateShipmentStatusParams struct {
@@ -152,11 +152,11 @@ func (q *Queries) UpdateShipmentStatus(ctx context.Context, arg UpdateShipmentSt
 		&i.ID,
 		&i.OwnerID,
 		&i.CargoType,
-		&i.Origin,
-		&i.Destination,
 		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.OriginStationID,
+		&i.DestinationStationID,
 	)
 	return i, err
 }

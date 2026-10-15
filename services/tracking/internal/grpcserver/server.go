@@ -38,9 +38,7 @@ func (s *Server) AddPosition(ctx context.Context, req *trackingv1.AddPositionReq
 	p, err := s.svc.AddPosition(ctx, service.AddPositionInput{
 		UserID:     userID,
 		ShipmentID: shipmentID,
-		Station:    req.GetStation(),
-		Lat:        req.GetLat(),
-		Lon:        req.GetLon(),
+		StationID:  req.GetStationId(),
 	})
 	if err != nil {
 		return nil, s.toStatus(ctx, err)
@@ -85,6 +83,7 @@ func toProto(p service.Position) *trackingv1.Position {
 		Lon:        p.Lon,
 		Source:     p.Source,
 		RecordedAt: timestamppb.New(p.RecordedAt),
+		StationId:  p.StationID,
 	}
 }
 

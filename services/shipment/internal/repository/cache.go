@@ -12,7 +12,8 @@ import (
 	"github.com/Andas-LV/cargoflow/services/shipment/internal/repository/db"
 )
 
-// Cache keeps shipments in Redis as JSON under shipment:<id>.
+// Cache keeps shipments in Redis as JSON under shipment:v2:<id>.
+// The version changes with the cached struct, so old entries are simply never read.
 type Cache struct {
 	rdb *redis.Client
 	ttl time.Duration
@@ -50,4 +51,4 @@ func (c *Cache) Delete(ctx context.Context, id uuid.UUID) error {
 	return c.rdb.Del(ctx, cacheKey(id)).Err()
 }
 
-func cacheKey(id uuid.UUID) string { return "shipment:" + id.String() }
+func cacheKey(id uuid.UUID) string { return "shipment:v2:" + id.String() }

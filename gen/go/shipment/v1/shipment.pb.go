@@ -128,19 +128,17 @@ func (ShipmentStatus) EnumDescriptor() ([]byte, []int) {
 }
 
 type Shipment struct {
-	state     protoimpl.MessageState `protogen:"open.v1"`
-	Id        string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
-	OwnerId   string                 `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
-	CargoType CargoType              `protobuf:"varint,3,opt,name=cargo_type,json=cargoType,proto3,enum=shipment.v1.CargoType" json:"cargo_type,omitempty"`
-	// Origin station, e.g. "Astana-1".
-	Origin string `protobuf:"bytes,4,opt,name=origin,proto3" json:"origin,omitempty"`
-	// Destination station, e.g. "Almaty-2".
-	Destination   string                 `protobuf:"bytes,5,opt,name=destination,proto3" json:"destination,omitempty"`
-	Status        ShipmentStatus         `protobuf:"varint,6,opt,name=status,proto3,enum=shipment.v1.ShipmentStatus" json:"status,omitempty"`
-	CreatedAt     *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state              protoimpl.MessageState `protogen:"open.v1"`
+	Id                 string                 `protobuf:"bytes,1,opt,name=id,proto3" json:"id,omitempty"`
+	OwnerId            string                 `protobuf:"bytes,2,opt,name=owner_id,json=ownerId,proto3" json:"owner_id,omitempty"`
+	CargoType          CargoType              `protobuf:"varint,3,opt,name=cargo_type,json=cargoType,proto3,enum=shipment.v1.CargoType" json:"cargo_type,omitempty"`
+	Status             ShipmentStatus         `protobuf:"varint,6,opt,name=status,proto3,enum=shipment.v1.ShipmentStatus" json:"status,omitempty"`
+	CreatedAt          *timestamppb.Timestamp `protobuf:"bytes,7,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
+	UpdatedAt          *timestamppb.Timestamp `protobuf:"bytes,8,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	OriginStation      *Station               `protobuf:"bytes,9,opt,name=origin_station,json=originStation,proto3" json:"origin_station,omitempty"`
+	DestinationStation *Station               `protobuf:"bytes,10,opt,name=destination_station,json=destinationStation,proto3" json:"destination_station,omitempty"`
+	unknownFields      protoimpl.UnknownFields
+	sizeCache          protoimpl.SizeCache
 }
 
 func (x *Shipment) Reset() {
@@ -194,20 +192,6 @@ func (x *Shipment) GetCargoType() CargoType {
 	return CargoType_CARGO_TYPE_UNSPECIFIED
 }
 
-func (x *Shipment) GetOrigin() string {
-	if x != nil {
-		return x.Origin
-	}
-	return ""
-}
-
-func (x *Shipment) GetDestination() string {
-	if x != nil {
-		return x.Destination
-	}
-	return ""
-}
-
 func (x *Shipment) GetStatus() ShipmentStatus {
 	if x != nil {
 		return x.Status
@@ -229,13 +213,28 @@ func (x *Shipment) GetUpdatedAt() *timestamppb.Timestamp {
 	return nil
 }
 
+func (x *Shipment) GetOriginStation() *Station {
+	if x != nil {
+		return x.OriginStation
+	}
+	return nil
+}
+
+func (x *Shipment) GetDestinationStation() *Station {
+	if x != nil {
+		return x.DestinationStation
+	}
+	return nil
+}
+
 type CreateShipmentRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	CargoType     CargoType              `protobuf:"varint,1,opt,name=cargo_type,json=cargoType,proto3,enum=shipment.v1.CargoType" json:"cargo_type,omitempty"`
-	Origin        string                 `protobuf:"bytes,2,opt,name=origin,proto3" json:"origin,omitempty"`
-	Destination   string                 `protobuf:"bytes,3,opt,name=destination,proto3" json:"destination,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state     protoimpl.MessageState `protogen:"open.v1"`
+	CargoType CargoType              `protobuf:"varint,1,opt,name=cargo_type,json=cargoType,proto3,enum=shipment.v1.CargoType" json:"cargo_type,omitempty"`
+	// Station IDs from StationService, e.g. "osm-n260543817".
+	OriginStationId      string `protobuf:"bytes,4,opt,name=origin_station_id,json=originStationId,proto3" json:"origin_station_id,omitempty"`
+	DestinationStationId string `protobuf:"bytes,5,opt,name=destination_station_id,json=destinationStationId,proto3" json:"destination_station_id,omitempty"`
+	unknownFields        protoimpl.UnknownFields
+	sizeCache            protoimpl.SizeCache
 }
 
 func (x *CreateShipmentRequest) Reset() {
@@ -275,16 +274,16 @@ func (x *CreateShipmentRequest) GetCargoType() CargoType {
 	return CargoType_CARGO_TYPE_UNSPECIFIED
 }
 
-func (x *CreateShipmentRequest) GetOrigin() string {
+func (x *CreateShipmentRequest) GetOriginStationId() string {
 	if x != nil {
-		return x.Origin
+		return x.OriginStationId
 	}
 	return ""
 }
 
-func (x *CreateShipmentRequest) GetDestination() string {
+func (x *CreateShipmentRequest) GetDestinationStationId() string {
 	if x != nil {
-		return x.Destination
+		return x.DestinationStationId
 	}
 	return ""
 }
@@ -610,24 +609,25 @@ var File_shipment_v1_shipment_proto protoreflect.FileDescriptor
 
 const file_shipment_v1_shipment_proto_rawDesc = "" +
 	"\n" +
-	"\x1ashipment/v1/shipment.proto\x12\vshipment.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xd1\x02\n" +
+	"\x1ashipment/v1/shipment.proto\x12\vshipment.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x1fgoogle/protobuf/timestamp.proto\x1a\x19shipment/v1/station.proto\"\xbc\x03\n" +
 	"\bShipment\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x19\n" +
 	"\bowner_id\x18\x02 \x01(\tR\aownerId\x125\n" +
 	"\n" +
-	"cargo_type\x18\x03 \x01(\x0e2\x16.shipment.v1.CargoTypeR\tcargoType\x12\x16\n" +
-	"\x06origin\x18\x04 \x01(\tR\x06origin\x12 \n" +
-	"\vdestination\x18\x05 \x01(\tR\vdestination\x123\n" +
+	"cargo_type\x18\x03 \x01(\x0e2\x16.shipment.v1.CargoTypeR\tcargoType\x123\n" +
 	"\x06status\x18\x06 \x01(\x0e2\x1b.shipment.v1.ShipmentStatusR\x06status\x129\n" +
 	"\n" +
 	"created_at\x18\a \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\"\x97\x01\n" +
+	"updated_at\x18\b \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12;\n" +
+	"\x0eorigin_station\x18\t \x01(\v2\x14.shipment.v1.StationR\roriginStation\x12E\n" +
+	"\x13destination_station\x18\n" +
+	" \x01(\v2\x14.shipment.v1.StationR\x12destinationStationJ\x04\b\x04\x10\x05J\x04\b\x05\x10\x06R\x06originR\vdestination\"\xe0\x01\n" +
 	"\x15CreateShipmentRequest\x12:\n" +
 	"\n" +
-	"cargo_type\x18\x01 \x01(\x0e2\x16.shipment.v1.CargoTypeB\x03\xe0A\x02R\tcargoType\x12\x1b\n" +
-	"\x06origin\x18\x02 \x01(\tB\x03\xe0A\x02R\x06origin\x12%\n" +
-	"\vdestination\x18\x03 \x01(\tB\x03\xe0A\x02R\vdestination\"K\n" +
+	"cargo_type\x18\x01 \x01(\x0e2\x16.shipment.v1.CargoTypeB\x03\xe0A\x02R\tcargoType\x12/\n" +
+	"\x11origin_station_id\x18\x04 \x01(\tB\x03\xe0A\x02R\x0foriginStationId\x129\n" +
+	"\x16destination_station_id\x18\x05 \x01(\tB\x03\xe0A\x02R\x14destinationStationIdJ\x04\b\x02\x10\x03J\x04\b\x03\x10\x04R\x06originR\vdestination\"K\n" +
 	"\x16CreateShipmentResponse\x121\n" +
 	"\bshipment\x18\x01 \x01(\v2\x15.shipment.v1.ShipmentR\bshipment\")\n" +
 	"\x12GetShipmentRequest\x12\x13\n" +
@@ -686,31 +686,34 @@ var file_shipment_v1_shipment_proto_goTypes = []any{
 	(*UpdateShipmentStatusRequest)(nil),  // 9: shipment.v1.UpdateShipmentStatusRequest
 	(*UpdateShipmentStatusResponse)(nil), // 10: shipment.v1.UpdateShipmentStatusResponse
 	(*timestamppb.Timestamp)(nil),        // 11: google.protobuf.Timestamp
+	(*Station)(nil),                      // 12: shipment.v1.Station
 }
 var file_shipment_v1_shipment_proto_depIdxs = []int32{
 	0,  // 0: shipment.v1.Shipment.cargo_type:type_name -> shipment.v1.CargoType
 	1,  // 1: shipment.v1.Shipment.status:type_name -> shipment.v1.ShipmentStatus
 	11, // 2: shipment.v1.Shipment.created_at:type_name -> google.protobuf.Timestamp
 	11, // 3: shipment.v1.Shipment.updated_at:type_name -> google.protobuf.Timestamp
-	0,  // 4: shipment.v1.CreateShipmentRequest.cargo_type:type_name -> shipment.v1.CargoType
-	2,  // 5: shipment.v1.CreateShipmentResponse.shipment:type_name -> shipment.v1.Shipment
-	2,  // 6: shipment.v1.GetShipmentResponse.shipment:type_name -> shipment.v1.Shipment
-	2,  // 7: shipment.v1.ListShipmentsResponse.shipments:type_name -> shipment.v1.Shipment
-	1,  // 8: shipment.v1.UpdateShipmentStatusRequest.status:type_name -> shipment.v1.ShipmentStatus
-	2,  // 9: shipment.v1.UpdateShipmentStatusResponse.shipment:type_name -> shipment.v1.Shipment
-	3,  // 10: shipment.v1.ShipmentService.CreateShipment:input_type -> shipment.v1.CreateShipmentRequest
-	5,  // 11: shipment.v1.ShipmentService.GetShipment:input_type -> shipment.v1.GetShipmentRequest
-	7,  // 12: shipment.v1.ShipmentService.ListShipments:input_type -> shipment.v1.ListShipmentsRequest
-	9,  // 13: shipment.v1.ShipmentService.UpdateShipmentStatus:input_type -> shipment.v1.UpdateShipmentStatusRequest
-	4,  // 14: shipment.v1.ShipmentService.CreateShipment:output_type -> shipment.v1.CreateShipmentResponse
-	6,  // 15: shipment.v1.ShipmentService.GetShipment:output_type -> shipment.v1.GetShipmentResponse
-	8,  // 16: shipment.v1.ShipmentService.ListShipments:output_type -> shipment.v1.ListShipmentsResponse
-	10, // 17: shipment.v1.ShipmentService.UpdateShipmentStatus:output_type -> shipment.v1.UpdateShipmentStatusResponse
-	14, // [14:18] is the sub-list for method output_type
-	10, // [10:14] is the sub-list for method input_type
-	10, // [10:10] is the sub-list for extension type_name
-	10, // [10:10] is the sub-list for extension extendee
-	0,  // [0:10] is the sub-list for field type_name
+	12, // 4: shipment.v1.Shipment.origin_station:type_name -> shipment.v1.Station
+	12, // 5: shipment.v1.Shipment.destination_station:type_name -> shipment.v1.Station
+	0,  // 6: shipment.v1.CreateShipmentRequest.cargo_type:type_name -> shipment.v1.CargoType
+	2,  // 7: shipment.v1.CreateShipmentResponse.shipment:type_name -> shipment.v1.Shipment
+	2,  // 8: shipment.v1.GetShipmentResponse.shipment:type_name -> shipment.v1.Shipment
+	2,  // 9: shipment.v1.ListShipmentsResponse.shipments:type_name -> shipment.v1.Shipment
+	1,  // 10: shipment.v1.UpdateShipmentStatusRequest.status:type_name -> shipment.v1.ShipmentStatus
+	2,  // 11: shipment.v1.UpdateShipmentStatusResponse.shipment:type_name -> shipment.v1.Shipment
+	3,  // 12: shipment.v1.ShipmentService.CreateShipment:input_type -> shipment.v1.CreateShipmentRequest
+	5,  // 13: shipment.v1.ShipmentService.GetShipment:input_type -> shipment.v1.GetShipmentRequest
+	7,  // 14: shipment.v1.ShipmentService.ListShipments:input_type -> shipment.v1.ListShipmentsRequest
+	9,  // 15: shipment.v1.ShipmentService.UpdateShipmentStatus:input_type -> shipment.v1.UpdateShipmentStatusRequest
+	4,  // 16: shipment.v1.ShipmentService.CreateShipment:output_type -> shipment.v1.CreateShipmentResponse
+	6,  // 17: shipment.v1.ShipmentService.GetShipment:output_type -> shipment.v1.GetShipmentResponse
+	8,  // 18: shipment.v1.ShipmentService.ListShipments:output_type -> shipment.v1.ListShipmentsResponse
+	10, // 19: shipment.v1.ShipmentService.UpdateShipmentStatus:output_type -> shipment.v1.UpdateShipmentStatusResponse
+	16, // [16:20] is the sub-list for method output_type
+	12, // [12:16] is the sub-list for method input_type
+	12, // [12:12] is the sub-list for extension type_name
+	12, // [12:12] is the sub-list for extension extendee
+	0,  // [0:12] is the sub-list for field type_name
 }
 
 func init() { file_shipment_v1_shipment_proto_init() }
@@ -718,6 +721,7 @@ func file_shipment_v1_shipment_proto_init() {
 	if File_shipment_v1_shipment_proto != nil {
 		return
 	}
+	file_shipment_v1_station_proto_init()
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

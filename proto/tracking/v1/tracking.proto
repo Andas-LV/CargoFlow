@@ -27,19 +27,24 @@ service TrackingService {
 message Position {
   string id = 1;
   string shipment_id = 2;
+  // Station name (Russian) at the time of recording.
   string station = 3;
   double lat = 4;
   double lon = 5;
   // What produced this position: "manual" or an event subject such as "shipment.created".
   string source = 6;
   google.protobuf.Timestamp recorded_at = 7;
+  // Station ID from the station directory (shipment.v1.StationService).
+  string station_id = 8;
 }
 
 message AddPositionRequest {
+  // Station name and coordinates now come from the station directory.
+  reserved 2, 3, 4;
+  reserved "station", "lat", "lon";
+
   string shipment_id = 1 [(google.api.field_behavior) = REQUIRED];
-  string station = 2 [(google.api.field_behavior) = REQUIRED];
-  double lat = 3;
-  double lon = 4;
+  string station_id = 5 [(google.api.field_behavior) = REQUIRED];
 }
 
 message AddPositionResponse {
