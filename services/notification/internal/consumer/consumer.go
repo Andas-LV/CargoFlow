@@ -12,6 +12,7 @@ import (
 	eventsv1 "github.com/Andas-LV/cargoflow/gen/go/events/v1"
 	"github.com/Andas-LV/cargoflow/pkg/natsx"
 	"github.com/Andas-LV/cargoflow/services/notification/internal/notifier"
+	"github.com/Andas-LV/cargoflow/services/notification/internal/locale"
 )
 
 const durableName = "notification"
@@ -46,8 +47,9 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			Title: "Shipment created",
-			Text:  fmt.Sprintf("Shipment %s (%s): %s → %s", ev.GetShipmentId(), ev.GetCargoType(), ev.GetOrigin(), ev.GetDestination()),
+			Title: "Заявка создана",
+			Text: fmt.Sprintf("Заявка %s (%s): %s → %s",
+				ev.GetShipmentId(), locale.CargoType(ev.GetCargoType()), ev.GetOrigin(), ev.GetDestination()),
 		}, nil
 
 	case natsx.SubjectShipmentStatusChanged:
@@ -56,8 +58,9 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			Title: "Shipment status changed",
-			Text:  fmt.Sprintf("Shipment %s: %s → %s", ev.GetShipmentId(), ev.GetOldStatus(), ev.GetNewStatus()),
+			Title: "Статус вагона изменен",
+			Text: fmt.Sprintf("Заявка %s: %s → %s",
+				ev.GetShipmentId(), locale.Status(ev.GetOldStatus()), locale.Status(ev.GetNewStatus())),
 		}, nil
 
 	case natsx.SubjectPositionUpdated:
@@ -66,8 +69,8 @@ func toMessage(subject string, data []byte) (notifier.Message, error) {
 			return notifier.Message{}, err
 		}
 		return notifier.Message{
-			Title: "Shipment moved",
-			Text:  fmt.Sprintf("Shipment %s is at %s", ev.GetShipmentId(), ev.GetStation()),
+			Title: "Вагон перемещен",
+			Text:  fmt.Sprintf("Заявка %s: %s", ev.GetShipmentId(), locale.Status(ev.GetStation())),
 		}, nil
 
 	default:
